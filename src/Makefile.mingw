@@ -1,0 +1,27 @@
+VPATH = . resid-fp
+CPP  = g++.exe
+CC   = gcc.exe
+WINDRES = windres.exe
+CFLAGS = -O3 -march=i686 -ffast-math -fomit-frame-pointer -falign-loops -falign-jumps -falign-functions
+OBJ = 1770.o 2xsai.o 6502.o adc.o adf.o config.o csw.o ddnoise.o debugger.o disc.o fdi.o fdi2raw.o firstbyte.o main.o mem.o palfilt.o savestate.o scale2x.o sound.o soundopenal.o ssd.o tapenoise.o uef.o ula.o win.o win-keydefine.o elkwin.res
+
+LIBS =  -mwindows -lalleg -lz -lalut -lopenal32 -lgdi32 -lwinmm -lstdc++
+
+Elkulator.exe: $(OBJ) $(SIDOBJ)
+	$(CC) $(OBJ) -o "Elkulator.exe" $(LIBS)
+
+all : Elkulator.exe
+
+clean :
+	del *.o
+	del *.exe
+	del *.res
+
+%.o : %.c
+	$(CC) $(CFLAGS) -c $<
+
+%.o : %.cc
+	$(CPP) $(CFLAGS) -c $<
+
+elkwin.res: elkwin.rc
+	$(WINDRES) -i elkwin.rc --input-format=rc -o elkwin.res -O coff
