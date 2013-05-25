@@ -23,6 +23,7 @@ extern int ddtype,ddvol,sndddnoise;
 
 MENU filemenu[6];
 MENU discmenu[8];
+MENU rommenu[4];
 MENU tapespdmenu[4];
 MENU tapemenu[5];
 MENU displaymenu[7];
@@ -35,7 +36,7 @@ MENU memmenu[4];
 MENU mrbmenu[4];
 MENU settingsmenu[7];
 MENU miscmenu[2];
-MENU mainmenu[6];
+MENU mainmenu[7];
 MENU joymenu[3];
 MENU ddtypemenu[3];
 MENU ddvolmenu[4];
@@ -143,6 +144,49 @@ int gui_load0()
         updatelinuxgui();
         return D_O_K;
 }
+
+int gui_romload0()
+{
+        char tempname[260];
+        tempname[0]=0;
+        int ret;
+        int xsize=windx-32,ysize=windy-16;
+        ret=file_select_ex("Please choose a ROM image",tempname,"ROM",260,xsize,ysize);
+        if (ret)
+        {
+                                loadcart(tempname);
+                                reset6502e();
+                                resetula();
+        }
+        updatelinuxgui();
+        return D_O_K;
+}
+
+int gui_romload1()
+{
+        char tempname[260];
+        tempname[0]=0;
+        int ret;
+        int xsize=windx-32,ysize=windy-16;
+        ret=file_select_ex("Please choose a ROM image",tempname,"ROM",260,xsize,ysize);
+        if (ret)
+        {
+                                loadcart2(tempname);
+                                reset6502e();
+                                resetula();
+        }
+        updatelinuxgui();
+        return D_O_K;
+}
+
+int gui_romeject0()
+{
+                        unloadcart();
+                        reset6502e();
+                        resetula();
+        return D_O_K;
+}
+
 int gui_load1()
 {
         char tempname[260];
@@ -204,6 +248,14 @@ MENU discmenu[8]=
         {"Write protect disc :0/2",gui_wprot0,NULL,0,NULL},
         {"Write protect disc :1/3",gui_wprot1,NULL,0,NULL},
         {"Default write protect",gui_wprotd,NULL,0,NULL},
+        {NULL,NULL,NULL,0,NULL}
+};
+
+MENU rommenu[4]=
+{
+        {"Load ROM cartridge &1...",gui_romload0,NULL,0,NULL},
+        {"Load ROM cartridge &2...",gui_romload1,NULL,0,NULL},
+        {"&Unload ROM cartridges...",gui_romeject0,NULL,0,NULL},
         {NULL,NULL,NULL,0,NULL}
 };
 
@@ -544,11 +596,12 @@ MENU miscmenu[2]=
         {NULL,NULL,NULL,0,NULL}
 };
 
-MENU mainmenu[6]=
+MENU mainmenu[7]=
 {
         {"&File",NULL,filemenu,0,NULL},
         {"&Tape",NULL,tapemenu,0,NULL},
         {"&Disc",NULL,discmenu,0,NULL},
+        {"&ROM",NULL,rommenu,0,NULL},
         {"&Settings",NULL,settingsmenu,0,NULL},
         {"&Misc",NULL,miscmenu,0,NULL},
         {NULL,NULL,NULL,0,NULL}
