@@ -12,7 +12,7 @@ int reallyfasttapebreak;
 
 int tapelcount,tapellatch,pps;
 int intone=0;
-gzFile *uef;
+gzFile uef;
 int cswena;
 
 int inchunk=0,chunkid=0,chunklen=0;
