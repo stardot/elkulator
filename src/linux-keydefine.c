@@ -217,8 +217,8 @@ int gui_keydefine()
         x=0;
         while (d[x].proc)
         {
-                d[x].x-=(d[0].w/2)-(538/2);
-                d[x].y-=(d[0].h/2)-(256/2);
+                d[x].x -= (SCREEN_W / 2) - (d[0].w / 2);
+                d[x].y -= (SCREEN_H / 2) - (d[0].h / 2);
                 x++;
         }
         return D_O_K;
