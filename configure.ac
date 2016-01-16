@@ -47,5 +47,6 @@ AC_CHECK_LIB([alut], [alutInit], [], \
    [echo "You need to install the ALUT library."
     exit -1])
 
+AC_CHECK_LIB([m], [sin])
 
 AC_OUTPUT([Makefile src/Makefile])
