@@ -942,6 +942,8 @@ void dosavescrshot()
 
 void startmovie()
 {
+    stopmovie();
+
     wantmovieframe = 1;
     moviefile = fopen(moviename, "wb");
     if (moviefile != NULL)
