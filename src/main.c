@@ -201,6 +201,7 @@ void runelk()
 
 void closeelk()
 {
+        stopmovie();
         saveconfig();
 //        dumpram();
 //        dumpregs();

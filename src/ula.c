@@ -6,6 +6,7 @@
 #include "2xsai.h"
 
 void dosavescrshot();
+void saveframe();
 
 int bitcount=0,sbitcount=9;
 int tapeout=0;
@@ -27,6 +28,9 @@ int extrom,rombank,intrombank;
 int tapeon;
 
 int soundlimit,soundon,soundcount,soundstat;
+uint8_t sndstreambuf[626];
+int sndstreamindex = 0;
+int sndstreamcount = 0;
 
 struct
 {
@@ -104,6 +108,9 @@ void initula()
                 if (c&0x80) ulalookup[c]|=8;
         }
         set_color_depth(desktop_color_depth());
+
+        /* Clear the sound stream buffer before we start filling it. */
+        memset(sndstreambuf, 0, sizeof(sndstreambuf));
 }
 
 int fullblit=0;
@@ -508,6 +515,9 @@ int modeend[8]={256,256,256,250,256,256,250,250};
 int nextulapoll;
 int numlines=0;
 int wantsavescrshot=0;
+int wantmovieframe=0;
+FILE *moviefile;
+BITMAP *moviebitmap;
 
 void yield()
 {
@@ -682,8 +692,23 @@ void yield()
                                                 }
                                                 if (soundlimit<0x20000) addsnd((soundon)?0x7F:0);
                                                 else                    addsnd((soundon)?soundstat:0);
+
+                                                /* Add values to the stream buffer if we are making a movie. */
+                                                if (wantmovieframe)
+                                                {
+                                                    sndstreambuf[sndstreamindex] = soundon ? ((soundlimit<0x20000) ? 0x7F : soundstat) : 0;
+                                                    sndstreamindex = (sndstreamindex + 1) % sizeof(sndstreambuf);
+                                                    sndstreamcount++;
+                                                }
                                         }
                                         logvols();
+
+                                }
+                                else if (wantmovieframe)
+                                {
+                                    sndstreambuf[sndstreamindex] = 0;
+                                    sndstreamindex = (sndstreamindex + 1) % sizeof(sndstreambuf);
+                                    sndstreamcount++;
                                 }
                                 
                                 ula.x=0;
@@ -769,6 +794,7 @@ void yield()
                                                         break;
                                                 }
                                                 if (wantsavescrshot) dosavescrshot();
+                                                if (wantmovieframe) saveframe();
                                                 endblit();
                                         }
 //                                        wait50();
@@ -912,6 +938,55 @@ void dosavescrshot()
         set_color_depth(8);
         
         wantsavescrshot=0;
+}
+
+void startmovie()
+{
+    wantmovieframe = 1;
+    moviefile = fopen(moviename, "wb");
+    if (moviefile != NULL)
+        moviebitmap=create_bitmap_ex(8, 640, 256);
+    sndstreamindex = 0;
+    sndstreamcount = 0;
+}
+
+void stopmovie()
+{
+    wantmovieframe = 0;
+    if (moviefile != NULL) {
+        fclose(moviefile);
+        destroy_bitmap(moviebitmap);
+        moviefile = NULL;
+    }
+}
+
+void saveframe()
+{
+    if (moviefile == NULL)
+        return;
+
+    int start;
+    if (sndstreamcount == 624) {
+        /* Take the last 625 samples. */
+        start = (sndstreamindex + 1) % sizeof(sndstreambuf);
+    } else if (sndstreamcount == 626) {
+        /* Take the first 625 samples from the 626 obtained and leave the last
+           one for the next frame. */
+        start = sndstreamindex;
+    }
+
+    blit(b,moviebitmap,0,0,0,0,640,256);
+    fwrite(moviebitmap->dat, 1, 640*256, moviefile);
+
+    int remaining = sizeof(sndstreambuf) - start;
+    if (remaining >= 625)
+        fwrite(&sndstreambuf[start], 1, 625, moviefile);
+    else {
+        fwrite(&sndstreambuf[start], 1, remaining, moviefile);
+        fwrite(sndstreambuf, 1, 625 - remaining, moviefile);
+    }
+
+    sndstreamcount = 0;
 }
 
 void clearscreen()

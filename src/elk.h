@@ -190,6 +190,9 @@ extern uint8_t readc[65536],writec[65536],fetchc[65536];
 extern int debug,debugon;
 
 extern char scrshotname[260];
+extern char moviename[260];
+extern uint8_t sndstreambuf[626];
+extern int sndstreamptr;
 
 extern int autoboot;
 extern int sndint;

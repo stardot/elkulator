@@ -7,6 +7,7 @@
 
 char ssname[260];
 char scrshotname[260];
+char moviename[260];
 
 int tapespeed;
 int fullscreen=0;

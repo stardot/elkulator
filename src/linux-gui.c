@@ -35,7 +35,7 @@ MENU dischmenu[4];
 MENU memmenu[4];
 MENU mrbmenu[4];
 MENU settingsmenu[7];
-MENU miscmenu[2];
+MENU miscmenu[4];
 MENU mainmenu[7];
 MENU joymenu[3];
 MENU ddtypemenu[3];
@@ -590,9 +590,32 @@ int gui_scrshot()
         return D_O_K;
 }
 
-MENU miscmenu[2]=
+int gui_startmovie()
+{
+        char tempname[260];
+        int ret;
+        int xsize=windx-32,ysize=windy-16;
+        tempname[0]=0;
+        ret=file_select_ex("Please enter filename",tempname,"VID",260,xsize,ysize);
+        if (ret)
+        {
+                memcpy(moviename,tempname,260);
+                startmovie(moviename);
+        }
+        return D_O_K;
+}
+
+int gui_stopmovie()
+{
+    stopmovie(moviename);
+    return D_O_K;
+}
+
+MENU miscmenu[4]=
 {
         {"Save screenshot",gui_scrshot,NULL,0,NULL},
+        {"Start movie",gui_startmovie,NULL,0,NULL},
+        {"Stop movie",gui_stopmovie,NULL,0,NULL},
         {NULL,NULL,NULL,0,NULL}
 };
 
