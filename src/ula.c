@@ -2,6 +2,7 @@
   ULA and video emulation*/
 #include <allegro.h>
 #include <stdio.h>
+#include <zlib.h>
 #include "elk.h"
 #include "2xsai.h"
 
@@ -947,8 +948,10 @@ void startmovie()
 
     wantmovieframe = 1;
     moviefile = fopen(moviename, "wb");
-    if (moviefile != NULL)
-        moviebitmap=create_bitmap_ex(8, 640, 256);
+    if (moviefile == NULL)
+        return;
+
+    moviebitmap=create_bitmap_ex(8, 640, 256);
     sndstreamindex = 0;
     sndstreamcount = 0;
 }
@@ -961,6 +964,46 @@ void stopmovie()
         destroy_bitmap(moviebitmap);
         moviefile = NULL;
     }
+}
+
+#define DEFLATE_CHUNK_SIZE 262144
+
+int deflate_bitmap(int level)
+{
+    unsigned int have;
+    z_stream strm;
+    unsigned char in[DEFLATE_CHUNK_SIZE];
+    unsigned char out[DEFLATE_CHUNK_SIZE];
+
+    /* Allocate the deflate state. */
+    strm.zalloc = Z_NULL;
+    strm.zfree = Z_NULL;
+    strm.opaque = Z_NULL;
+    if (deflateInit(&strm, level) != Z_OK)
+        return Z_ERRNO;
+
+    /* Compress the bitmap buffer. */
+    strm.avail_in = 640*256;
+    strm.next_in = moviebitmap->dat;
+
+    /* Run deflate() on the bitmap buffer, finishing the compression. */
+    strm.avail_out = DEFLATE_CHUNK_SIZE;
+    strm.next_out = out;
+    if (deflate(&strm, Z_FINISH) == Z_STREAM_ERROR)
+        return Z_ERRNO;
+
+    /* Write the length of the data. */
+    have = DEFLATE_CHUNK_SIZE - strm.avail_out;
+    fwrite(&have, sizeof(unsigned int), 1, moviefile);
+
+    if (fwrite(out, 1, have, moviefile) != have || ferror(moviefile)) {
+        deflateEnd(&strm);
+        return Z_ERRNO;
+    }
+
+    /* clean up and return */
+    deflateEnd(&strm);
+    return Z_OK;
 }
 
 void saveframe()
@@ -979,7 +1022,11 @@ void saveframe()
     }
 
     blit(b,moviebitmap,0,0,0,0,640,256);
-    fwrite(moviebitmap->dat, 1, 640*256, moviefile);
+
+    if (deflate_bitmap(7) != Z_OK) {
+        stopmovie();
+        return;
+    }
 
     int remaining = sizeof(sndstreambuf) - start;
     if (remaining >= 625)

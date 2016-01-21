@@ -16,7 +16,7 @@ elkulator_CFLAGS = $(allegro_CFLAGS)
 if OS_WIN
 elkulator_LDADD = -lalleg -lz -lopenal -lalut
 else
-elkulator_LDADD = $(allegro_LIBS) -lz -lopenal -lalut
+elkulator_LDADD = $(allegro_LIBS) -lz -lopenal -lalut -lz
 endif
 
 elkulator_SOURCES = 2xsai.c 1770.c 6502.c adc.c adf.c config.c csw.c ddnoise.c \
