@@ -7,6 +7,7 @@
 
 void dosavescrshot();
 void saveframe();
+void stopmovie();
 
 int bitcount=0,sbitcount=9;
 int tapeout=0;
