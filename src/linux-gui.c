@@ -596,7 +596,7 @@ int gui_startmovie()
         int ret;
         int xsize=windx-32,ysize=windy-16;
         tempname[0]=0;
-        ret=file_select_ex("Please enter filename",tempname,"VID",260,xsize,ysize);
+        ret=file_select_ex("Please enter filename",tempname,"avi",260,xsize,ysize);
         if (ret)
         {
                 memcpy(moviename,tempname,260);

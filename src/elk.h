@@ -189,10 +189,20 @@ extern uint8_t readc[65536],writec[65536],fetchc[65536];
 
 extern int debug,debugon;
 
+/* movie.c */
 extern char scrshotname[260];
 extern char moviename[260];
-extern uint8_t sndstreambuf[626];
+extern uint16_t sndstreambuf[626];
 extern int sndstreamptr;
+extern int sndstreamindex;
+extern int sndstreamcount;
+
+extern int wantmovieframe;
+extern FILE *moviefile;
+extern BITMAP *moviebitmap;
+extern int movieframes;
+
+void saveframe(BITMAP *);
 
 extern int autoboot;
 extern int sndint;
