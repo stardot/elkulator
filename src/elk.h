@@ -203,6 +203,7 @@ extern BITMAP *moviebitmap;
 extern int movieframes;
 
 void saveframe(BITMAP *);
+void stopmovie();
 
 extern int autoboot;
 extern int sndint;

@@ -607,7 +607,7 @@ int gui_startmovie()
 
 int gui_stopmovie()
 {
-    stopmovie(moviename);
+    stopmovie();
     return D_O_K;
 }
 
