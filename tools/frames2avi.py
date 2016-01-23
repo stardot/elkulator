@@ -2,9 +2,9 @@
 
 """
 frames2avi.py - Convert VID files containing video frames and audio samples
-                into a AVI files for further processing.
+                into AVI files for further processing.
 
-Copyright (C) 2015 David Boddie <david@boddie.org.uk>
+Copyright (C) 2016 David Boddie <david@boddie.org.uk>
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -106,7 +106,7 @@ class AVIWriter:
 
 def usage():
 
-    sys.stderr.write("Usage: %s [-u] [-d <width>x<height>] [time span] <movie data file> <AVI file>\n" % sys.argv[0])
+    sys.stderr.write("Usage: %s [-u] [-d <width>x<height>] [-t <begin>,<end>] <movie data file> <AVI file>\n" % sys.argv[0])
     sys.stderr.write("The time span is specified as [first],[last] in frames.\n")
     sys.exit(1)
 
@@ -127,20 +127,12 @@ if __name__ == "__main__":
             args = args[:at] + args[at + 2:]
             width, height = map(int, dim.split("x"))
     
-    except (IndexError, ValueError):
-        usage()
-    
-    if not 3 <= len(args) <= 4:
-        usage()
-    
-    movie_file = args[-2]
-    avi_file = args[-1]
-    
-    if len(args) == 3:
         first, last = 0, None
-    else:
-        try:
-            pieces = args[1].split(",")
+        while "-t" in args:
+            at = args.index("-t")
+            t, span = args[at:at + 2]
+            args = args[:at] + args[at + 2:]
+            pieces = span.split(",")
             if pieces[0]:
                 first = int(pieces[0])
             else:
@@ -150,8 +142,15 @@ if __name__ == "__main__":
                 last = int(pieces[1])
             else:
                 last = None
-        except ValueError:
-            usage()
+    
+    except (IndexError, ValueError):
+        usage()
+    
+    if len(args) != 3:
+        usage()
+    
+    movie_file = args[-2]
+    avi_file = args[-1]
     
     placeholders = []
     
