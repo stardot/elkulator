@@ -106,7 +106,7 @@ class AVIWriter:
 
 def usage():
 
-    sys.stderr.write("Usage: %s [-u] [time span] <movie data file> <AVI file>\n" % sys.argv[0])
+    sys.stderr.write("Usage: %s [-u] [-d <width>x<height>] [time span] <movie data file> <AVI file>\n" % sys.argv[0])
     sys.stderr.write("The time span is specified as [first],[last] in frames.\n")
     sys.exit(1)
 
@@ -118,6 +118,17 @@ if __name__ == "__main__":
     compressed = not ("-u" in args)
     if not compressed:
         args.remove("-u")
+    
+    width, height = 640, 512
+    try:
+        while "-d" in args:
+            at = args.index("-d")
+            d, dim = args[at:at + 2]
+            args = args[:at] + args[at + 2:]
+            width, height = map(int, dim.split("x"))
+    
+    except (IndexError, ValueError):
+        usage()
     
     if not 3 <= len(args) <= 4:
         usage()
@@ -160,8 +171,8 @@ if __name__ == "__main__":
     avi.write_int(0)                # initial frame
     avi.write_int(2)                # number of streams
     avi.write_int(0)
-    avi.write_int(640)              # width
-    avi.write_int(512)              # height
+    avi.write_int(width)            # width
+    avi.write_int(height)           # height
     avi.write_int(0)
     avi.write_int(0)
     avi.write_int(0)
@@ -271,7 +282,7 @@ if __name__ == "__main__":
                       "\xff\x00\xff"
                       "\x00\xff\xff"
                       "\xff\xff\xff")
-        im = im.resize((640, 512), Image.NEAREST)
+        im = im.resize((width, height), Image.NEAREST)
         
         avi.begin_chunk("01wb")     # 01wb
         audio_data = f.read(625)
