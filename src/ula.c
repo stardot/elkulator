@@ -1023,7 +1023,7 @@ void saveframe()
 
     blit(b,moviebitmap,0,0,0,0,640,256);
 
-    if (deflate_bitmap(7) != Z_OK) {
+    if (deflate_bitmap(6) != Z_OK) {
         stopmovie();
         return;
     }
