@@ -104,6 +104,45 @@ class AVIWriter:
         self.f.close()
 
 
+class ArgumentError(Exception):
+    pass
+
+def find_option(args, label, number = 0):
+
+    """Matches an option in a list of command line arguments, returning a
+    single boolean value for options without arguments and a tuple for options
+    with arguments.
+    
+    For options with arguments, the tuple contains a boolean value and a list
+    of arguments found unless only one argument is expected, in which case the
+    value itself is included in the tuple instead of a list.
+    
+    If the boolean value is True, the option was found. If it is False then
+    either it was not found or the required number of arguments was not found.
+    """
+    
+    try:
+        i = args.index(label)
+    except ValueError:
+        if number == 0:
+            return False
+        else:
+            return False, None
+    
+    values = args[i + 1:i + number + 1]
+    args[:] = args[:i] + args[i + number + 1:]
+    
+    if number == 0:
+        return True
+    
+    if len(values) < number:
+        raise ArgumentError, "Not enough values for argument '%s': %s" % (label, repr(values))
+    
+    if number == 1:
+        values = values[0]
+    
+    return True, values
+
 def usage():
 
     sys.stderr.write("Usage: %s [-u] [-d <width>x<height>] [-t <begin>,<end>] <movie data file> <AVI file>\n" % sys.argv[0])
@@ -115,24 +154,20 @@ if __name__ == "__main__":
 
     args = sys.argv[:]
     
-    compressed = not ("-u" in args)
-    if not compressed:
-        args.remove("-u")
-    
-    width, height = 640, 512
     try:
-        while "-d" in args:
-            at = args.index("-d")
-            d, dim = args[at:at + 2]
-            args = args[:at] + args[at + 2:]
+        uncompressed = find_option(args, "-u")
+        compressed = not uncompressed
+        
+        width, height = 640, 512
+        d, dim = find_option(args, "-d", 1)
+        if d:
             width, height = map(int, dim.split("x"))
     
         first, last = 0, None
-        while "-t" in args:
-            at = args.index("-t")
-            t, span = args[at:at + 2]
-            args = args[:at] + args[at + 2:]
+        t, span = find_option(args, "-t", 1)
+        if t:
             pieces = span.split(",")
+            
             if pieces[0]:
                 first = int(pieces[0])
             else:
@@ -143,7 +178,7 @@ if __name__ == "__main__":
             else:
                 last = None
     
-    except (IndexError, ValueError):
+    except (ArgumentError, IndexError, ValueError):
         usage()
     
     if len(args) != 3:
@@ -244,14 +279,14 @@ if __name__ == "__main__":
     avi.begin_list("movi")      # movi
     
     frame = 0
+    if width < 160 or height < 256:
+        resize_mode = Image.ANTIALIAS
+    else:
+        resize_mode = Image.NEAREST
     
     while True:
     
-        if frame < first:
-            frame += 1
-            f.seek(frame_size, 1)
-            continue
-        elif last != None and frame > last:
+        if last != None and frame > last:
             break
         
         if compressed:
@@ -264,11 +299,16 @@ if __name__ == "__main__":
         
         data = f.read(size)
         
-        if compressed:
-            data = zlib.decompress(data)
-        
         if not data or len(data) < size:
             break
+        
+        if frame < first:
+            f.seek(625, 1)
+            frame += 1
+            continue
+        
+        if compressed:
+            data = zlib.decompress(data)
         
         avi.begin_list("rec ")    # rec
         
@@ -281,7 +321,7 @@ if __name__ == "__main__":
                       "\xff\x00\xff"
                       "\x00\xff\xff"
                       "\xff\xff\xff")
-        im = im.resize((width, height), Image.NEAREST)
+        im = im.resize((width, height), resize_mode)
         
         avi.begin_chunk("01wb")     # 01wb
         audio_data = f.read(625)
