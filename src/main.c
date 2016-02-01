@@ -61,16 +61,18 @@ void cleardrawit()
 }*/
 
 char tapename[512];
+char romname[512];
+char romname2[512];
 
 void initelk(int argc, char *argv[])
 {
         int c;
         char *p;
-        int tapenext=0,discnext=0;
+        int tapenext=0,discnext=0,romnext=0;
         get_executable_name(exedir,511);
         p=get_filename(exedir);
         p[0]=0;
-        discname[0]=discname2[0]=tapename[0]=0;
+        romname[0]=romname2[0]=discname[0]=discname2[0]=tapename[0]=0;
 //        printf("Load config\n");
         loadconfig();
 //printf("commandline\n");
@@ -92,6 +94,8 @@ void initelk(int argc, char *argv[])
                         printf("-disc disc.ssd  - load disc.ssd into drives :0/:2\n");
                         printf("-disc1 disc.ssd - load disc.ssd into drives :1/:3\n");
                         printf("-tape tape.uef  - load tape.uef\n");
+                        printf("-rom1 rom       - load rom into cartridge ROM bank 1\n");
+                        printf("-rom2 rom       - load rom into cartridge ROM bank 2\n");
                         printf("-debug          - start debugger\n");
                         exit(-1);
                 }
@@ -109,6 +113,14 @@ void initelk(int argc, char *argv[])
                 {
                         discnext=2;
                 }
+                else if (!strcasecmp(argv[c],"-rom1"))
+                {
+                        romnext=1;
+                }
+                else if (!strcasecmp(argv[c],"-rom2"))
+                {
+                        romnext=2;
+                }
                 else if (!strcasecmp(argv[c],"-debug"))
                 {
                         debug=debugon=1;
@@ -120,6 +132,12 @@ void initelk(int argc, char *argv[])
                         if (discnext==2) strcpy(discname2,argv[c]);
                         else             strcpy(discname,argv[c]);
                         discnext=0;
+                }
+                else if (romnext)
+                {
+                        if (romnext==2) strcpy(romname2,argv[c]);
+                        else            strcpy(romname,argv[c]);
+                        romnext=0;
                 }
                 if (tapenext) tapenext--;
         }
@@ -137,6 +155,8 @@ void initelk(int argc, char *argv[])
         loadtape(tapename);
         loaddisc(0,discname);
         loaddisc(1,discname2);
+        loadcart(romname);
+        loadcart2(romname2);
         if (defaultwriteprot) writeprot[0]=writeprot[1]=1;
 #ifndef WIN32
         install_keyboard();
