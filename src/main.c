@@ -136,7 +136,7 @@ void initelk(int argc, char *argv[])
                 else if (romnext)
                 {
                         if (romnext==2) strcpy(romname2,argv[c]);
-                        else            strcpy(romname,argv[c]);
+                        if (romnext==1) strcpy(romname,argv[c]);
                         romnext=0;
                 }
                 if (tapenext) tapenext--;

@@ -60,6 +60,7 @@ void loadroms()
 void loadcart(char *fn)
 {
         FILE *f=fopen(fn,"rb");
+        if (!f) return;
         fread(rom12,16384,1,f);
         fclose(f);
 }
@@ -67,6 +68,7 @@ void loadcart(char *fn)
 void loadcart2(char *fn)
 {
         FILE *f=fopen(fn,"rb");
+        if (!f) return;
         fread(rom13,16384,1,f);
         fclose(f);
 }
