@@ -20,12 +20,6 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-# The following sites were quite useful for learning about the RIFF and AVI
-# formats:
-#
-# http://www.jmcgowan.com/avitech.html#Format
-# https://msdn.microsoft.com/en-us/library/windows/desktop/dd318189%28v=vs.85%29.aspx
-
 import os, stat, struct, sys, zlib
 import Image
 
@@ -189,6 +183,8 @@ if __name__ == "__main__":
     
     placeholders = []
     
+    length = os.stat(movie_file)[stat.ST_SIZE]
+    
     f = open(movie_file, "rb")
     avi = AVIWriter(avi_file)
     
@@ -321,7 +317,8 @@ if __name__ == "__main__":
                       "\xff\x00\xff"
                       "\x00\xff\xff"
                       "\xff\xff\xff")
-        im = im.resize((width, height), resize_mode)
+        if width != 640 or height != 256:
+            im = im.resize((width, height), resize_mode)
         
         avi.begin_chunk("01wb")     # 01wb
         audio_data = f.read(625)
@@ -336,11 +333,16 @@ if __name__ == "__main__":
         
         avi.end_list()
         
-        if last != None:
-            sys.stdout.write("\rEncoded %i in %i,%i" % (frame, first, last))
-        else:
-            sys.stdout.write("\rEncoded %i" % frame)
         frame += 1
+        elapsed = (frame - first)/50.0
+        percent = (100.0 * f.tell())/length
+ 
+        if last != None:
+            sys.stdout.write("\rEncoded %i of %i (%1.2f seconds)" % (
+                frame - first, last - first, elapsed))
+        else:
+            sys.stdout.write("\rEncoded %i (%1.2f seconds, %1.2f%%)" % (
+                frame - first, elapsed, percent))
     
     avi.end_list()              # movi
     
