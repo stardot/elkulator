@@ -181,6 +181,10 @@ if __name__ == "__main__":
     movie_file = args[-2]
     avi_file = args[-1]
     
+    if os.path.abspath(movie_file) == os.path.abspath(avi_file):
+        sys.stderr.write("Cannot overwrite the movie data file while reading it.\n")
+        sys.exit(1)
+    
     placeholders = []
     
     length = os.stat(movie_file)[stat.ST_SIZE]
