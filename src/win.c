@@ -43,6 +43,7 @@ int plus3=0;
 int dfsena=0,adfsena=0;
 int turbo=0;
 int mrb=0,mrbmode=0;
+int ulamode=0;
 int drawmode=0;
 
 char discname[260];
@@ -151,6 +152,9 @@ void initmenu()
         CheckMenuItem(ghmenu,IDM_MRB_OFF,(mrbmode==0)?MF_CHECKED:MF_UNCHECKED);
         CheckMenuItem(ghmenu,IDM_MRB_TURBO,(mrbmode==1)?MF_CHECKED:MF_UNCHECKED);
         CheckMenuItem(ghmenu,IDM_MRB_SHADOW,(mrbmode==2)?MF_CHECKED:MF_UNCHECKED);
+
+        CheckMenuItem(ghmenu,IDM_ULA_STANDARD,(ulamode==0)?MF_CHECKED:MF_UNCHECKED);
+        CheckMenuItem(ghmenu,IDM_ULA_ENHANCED,(ulamode==1)?MF_CHECKED:MF_UNCHECKED);
 
         CheckMenuItem(ghmenu,IDM_VIDEO_SCANLINES,(drawmode==0)?MF_CHECKED:MF_UNCHECKED);
         CheckMenuItem(ghmenu,IDM_VIDEO_LINEDBL,(drawmode==1)?MF_CHECKED:MF_UNCHECKED);
@@ -534,6 +538,14 @@ LRESULT CALLBACK WindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPARAM
                         reset6502e();
                         resetula();
 //                        stopwaiting();
+                        break;
+                        case IDM_ULA_STANDARD:
+                        case IDM_ULA_ENHANCED:
+                        ulamode=wParam-IDM_ULA_STANDARD;
+                        CheckMenuItem(ghmenu,IDM_ULA_STANDARD,(ulamode==0)?MF_CHECKED:MF_UNCHECKED);
+                        CheckMenuItem(ghmenu,IDM_ULA_ENHANCED,(ulamode==1)?MF_CHECKED:MF_UNCHECKED);
+                        reset6502e();
+                        resetula();
                         break;
                         case IDM_DISC_AUTOBOOT:
                         EnterCriticalSection(&cs);

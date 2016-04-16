@@ -818,15 +818,22 @@ void yield()
 
 void waitforramsync()
 {
-        int temp;
-//        return;
-        if (!(ula.mode&4) && ula.dispon && ula.x<640)
+        /* During ULA screen update region. */
+        if (ula.dispon && ula.x<640)
         {
-                temp=640-ula.x;
-                cycles+=(temp/8);
-//                nextulapoll=1;
-        }
-        if (cycles&1) cycles++;
+                /* Lower screen modes where the ULA is continuously active. */
+                if (!(ula.mode&4))
+                {
+                        cycles+=((640-ula.x)/8);
+                }
+
+                if (cycles&1) cycles++;
+                cycles++;
+	}
+
+        /* Outside the region, access RAM at 1MHz unless the ULA is enhanced. */
+	else if (ulamode == 0)
+                cycles++;
 }
 
 void saveulastate(FILE *f)

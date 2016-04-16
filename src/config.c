@@ -94,6 +94,7 @@ void loadconfig()
         turbo=getintcfg("turbo",0);
         mrb=getintcfg("mrb",0);
         mrbmode=getintcfg("mrbmode",0);
+        ulamode=getintcfg("ulamode",0);
 
         drawmode=getintcfg("filter",0);
         
@@ -154,6 +155,7 @@ void saveconfig()
         writeintcfg("turbo",turbo);
         writeintcfg("mrb",mrb);
         writeintcfg("mrbmode",mrbmode);
+        writeintcfg("ulamode",ulamode);
         
         writeintcfg("filter",drawmode);
         

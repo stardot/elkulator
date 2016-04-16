@@ -32,8 +32,9 @@ MENU videomenu[3];
 MENU soundmenu[7];
 MENU keymenu[2];
 MENU dischmenu[4];
-MENU memmenu[4];
+MENU memmenu[5];
 MENU mrbmenu[4];
+MENU ulamenu[3];
 MENU settingsmenu[7];
 MENU miscmenu[4];
 MENU mainmenu[7];
@@ -61,6 +62,7 @@ void updatelinuxgui()
         memmenu[0].flags=(turbo)?D_SELECTED:0;
         memmenu[1].flags=(mrb)?D_SELECTED:0;
         for (x=0;x<3;x++)  mrbmenu[x].flags=(mrbmode==(int)mrbmenu[x].dp)?D_SELECTED:0;
+        for (x=0;x<2;x++)  ulamenu[x].flags=(ulamode==(int)ulamenu[x].dp)?D_SELECTED:0;
         joymenu[0].flags=(plus1)?D_SELECTED:0;
         joymenu[1].flags=(firstbyte)?D_SELECTED:0;
 //        for (x=0;x<5;x++)  waveformmenu[x].flags=(curwave==(int)waveformmenu[x].dp)?D_SELECTED:0;
@@ -513,6 +515,21 @@ MENU mrbmenu[4]=
         {NULL,NULL,NULL,0,NULL}
 };
 
+int gui_ulamode()
+{
+        ulamode=(int)active_menu->dp;
+        resetit=1;
+        updatelinuxgui();
+        return D_O_K;
+}
+
+MENU ulamenu[3]=
+{
+        {"&Standard",gui_ulamode,NULL,0,(void *)0},
+        {"&Enhanced",gui_ulamode,NULL,0,(void *)1},
+        {NULL,NULL,NULL,0,NULL}
+};
+
 int gui_turbo()
 {
         turbo=!turbo;
@@ -531,11 +548,12 @@ int gui_mrb()
         return D_O_K;
 }
 
-MENU memmenu[4]=
+MENU memmenu[5]=
 {
         {"&Elektuur/Slogger turbo board",gui_turbo,NULL,0,NULL},
         {"&Slogger/Jafa Master RAM board",gui_mrb,NULL,0,NULL},
         {"&Master RAM board mode",NULL,mrbmenu,0,NULL},
+        {"Enhanced &ULA mode",NULL,ulamenu,0,NULL},
         {NULL,NULL,NULL,0,NULL}
 };
 

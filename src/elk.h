@@ -59,6 +59,7 @@ void dumpregs();
 
 extern int turbo;
 extern int mrb,mrbmode,mrbmapped;
+extern int ulamode;
 
 
 void error(const char *format, ...);

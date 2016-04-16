@@ -22,6 +22,7 @@ void dosavestate()
         putc(turbo,f);
         putc(mrb,f);
         putc(mrbmode,f);
+        putc(ulamode,f);
         putc(usedrom6,f);
         
         putc(plus3,f);
@@ -51,6 +52,7 @@ void doloadstate()
         turbo=getc(f);
         mrb=getc(f);
         mrbmode=getc(f);
+        ulamode=getc(f);
         usedrom6=getc(f);
         
         plus3=getc(f);

@@ -101,14 +101,12 @@ uint8_t readmem(uint16_t addr)
         {
                 if (FASTLOW) return ram2[addr];
                 waitforramsync();
-                cycles++;
                 return ram[addr];
         }
         if (addr<0x8000)
         {
                 if (FASTHIGH) return ram2[addr];
                 waitforramsync();
-                cycles++;
                 return ram[addr];
         }
         if (addr<0xC000)
@@ -168,7 +166,6 @@ void writemem(uint16_t addr, uint8_t val)
                 else
                 {
                         waitforramsync();
-                        cycles++;
                         ram[addr]=val;
                 }
                 return;
@@ -181,7 +178,6 @@ void writemem(uint16_t addr, uint8_t val)
                         return;
                 }
                 waitforramsync();
-                cycles++;
                 ram[addr]=val;
                 return;
         }

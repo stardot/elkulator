@@ -20,6 +20,7 @@ int plus3=0;
 int dfsena=0,adfsena=0;
 int turbo=0;
 int mrb=0,mrbmode=0;
+int ulamode=0;
 int drawmode=0;
 
 char discname[260];
