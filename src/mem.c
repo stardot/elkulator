@@ -219,7 +219,17 @@ void writemem(uint16_t addr, uint8_t val)
 //                if (!val) output=1;
         }
         if (addr==0xFC70 && plus1) writeadc(val);
-        if (addr == 0xfc00) { fprintf(stderr, "bank = %i\n", val); bank = val; }
+        /* The Mega Games Cartridge uses FC00 to select pairs of 16K banks in
+           the two sets of ROMs. */
+        if (enable_mgc && (addr == 0xfc00)) {
+            fprintf(stderr, "bank = %i\n", val); bank = val;
+        }
+        /* DB: My cartridge uses FC73 to select 32K regions in a flash ROM.
+           For convenience we use the same paired 16K ROM arrangement as for
+           the MGC. */
+        if (enable_db_flash_cartridge && (addr == 0xfc73)) {
+            fprintf(stderr, "bank = %i\n", val); bank = val;
+        }
 }
 
 int keys[2][14][4]=
