@@ -20,7 +20,7 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 """
 
-import os, stat, struct, sys, zlib
+import commands, os, stat, struct, sys, zlib
 import Image
 
 class AVIWriter:
@@ -360,6 +360,7 @@ if __name__ == "__main__":
     print "Ways to process the output file:"
     print
     #print "mencoder %s -o %s -ovc lavc -oac lavc -lavcopts vcodec=mpeg4:acodec=libmp3lame -srate 44100" % (avi_file, avi_file.replace(".avi", ".mp4"))
+    avi_file = commands.mkarg(avi_file)
     wav_file = avi_file.replace(".avi", ".wav")
     wav_44100_file = wav_file.replace(".wav", "-44100.wav")
     mp4_file = avi_file.replace(".avi", ".mp4")
