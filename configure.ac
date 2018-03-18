@@ -5,6 +5,7 @@ AC_PREREQ([2.61])
 AC_INIT(Elkulator, 1.0, Tom Walker <b-em@bbcmicro.com>, elkulator)
 
 AM_INIT_AUTOMAKE
+AC_CONFIG_MACRO_DIRS([m4])
 AC_PROG_CC
 AC_PROG_CXX
 AM_PROG_CC_C_O
