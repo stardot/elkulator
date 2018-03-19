@@ -1,7 +1,7 @@
 int pauseit;
 int output;
 int reallyfasttapebreak;
-/*Elkulator v1.0 by Tom Walker*/
+/*Elkulator v1.0 by Sarah Walker*/
 /*UEF handling*/
 #include <allegro.h>
 #include <stdio.h>

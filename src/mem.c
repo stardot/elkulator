@@ -1,4 +1,4 @@
-/*Elkulator v1.0 by Tom Walker
+/*Elkulator v1.0 by Sarah Walker
   Memory handling*/
 #include <allegro.h>
 #include <stdio.h>

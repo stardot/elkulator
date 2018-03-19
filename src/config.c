@@ -1,4 +1,4 @@
-/*Elkulator v1.0 by Tom Walker
+/*Elkulator v1.0 by Sarah Walker
   Configuration file handling*/
 #include <stdio.h>
 #include <string.h>

@@ -172,7 +172,7 @@ Geoff Vincent,Adrian Warner,Robin Williamson and Roger Wilson for contributing t
 development of the Acorn Electron (among others too numerous to mention)
 
 
-Tom Walker
+Sarah Walker
 
 b-em@bbcmicro.com
 

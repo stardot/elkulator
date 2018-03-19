@@ -1,4 +1,4 @@
-/*Elkulator v1.0 by Tom Walker
+/*Elkulator v1.0 by Sarah Walker
   Linux keyboard redefinition GUI*/
 
 #ifndef WIN32

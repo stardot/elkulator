@@ -8,7 +8,7 @@
    surprised with this code!
 */
 
-/*Modified by Tom Walker to work with Allegro*/
+/*Modified by Sarah Walker to work with Allegro*/
 
 #include <allegro.h>
 #ifndef MAX

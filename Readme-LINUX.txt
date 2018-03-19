@@ -55,5 +55,5 @@ Video performance is noticeably slower than on Windows. This is largely due to t
 of hardware acceleration support in Elkulator.
 
 
-Tom Walker
+Sarah Walker
 b-em@bbcmicro.com

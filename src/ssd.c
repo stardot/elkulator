@@ -1,4 +1,4 @@
-/*Elkulator v1.0 by Tom Walker
+/*Elkulator v1.0 by Sarah Walker
   SSD/DSD disc handling*/
 #include <stdio.h>
 #include "elk.h"

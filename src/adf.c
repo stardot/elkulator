@@ -1,4 +1,4 @@
-/*Elkulator v1.0 by Tom Walker
+/*Elkulator v1.0 by Sarah Walker
   ADFS disc support (really all double-density formats)*/
 
 #include <stdio.h>
