@@ -25,6 +25,17 @@ uint8_t sndlatch;
 int snden=0;
 int usedrom6=0;
 
+void loadrom(uint8_t dest[16384], char *name)
+{
+    FILE *f = fopen(name, "rb");
+    if (f == NULL) {
+        fprintf(stderr, "Failed to load ROM file '%s'.\n", name);
+        exit(1);
+    }
+    fread(dest, 16384, 1, f);
+    fclose(f);
+}
+
 void loadroms()
 {
         FILE *f;
@@ -33,27 +44,13 @@ void loadroms()
         sprintf(path,"%sroms",exedir);
         printf("path now %s\n",path);
         chdir(path);
-        f=fopen("os","rb");
-        fread(os,16384,1,f);
-        fclose(f);
-        f=fopen("os300.rom","rb");
-        fread(mrbos,16384,1,f);
-        fclose(f);
-        f=fopen("basic.rom","rb");
-        fread(basic,16384,1,f);
-        fclose(f);
-        f=fopen("adfs.rom","rb");
-        fread(adfs,16384,1,f);
-        fclose(f);
-        f=fopen("dfs.rom","rb");
-        fread(dfs,16384,1,f);
-        fclose(f);
-        f=fopen("sndrom","rb");
-        fread(sndrom,16384,1,f);
-        fclose(f);
-        f=fopen("plus1.rom","rb");
-        fread(plus1rom,16384,1,f);
-        fclose(f);
+        loadrom(os, "os");
+        loadrom(mrbos, "os300.rom");
+        loadrom(basic, "basic.rom");
+        loadrom(adfs, "adfs.rom");
+        loadrom(dfs, "dfs.rom");
+        loadrom(sndrom, "sndrom");
+        loadrom(plus1rom, "plus1.rom");
         chdir(p2);
 }
 
