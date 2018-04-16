@@ -364,10 +364,10 @@ if __name__ == "__main__":
     wav_file = avi_file.replace(".avi", ".wav")
     wav_44100_file = wav_file.replace(".wav", "-44100.wav")
     mp4_file = avi_file.replace(".avi", ".mp4")
-    print "avconv -i %s -map 0:1 %s" % (avi_file, wav_file)
+    print "ffmpeg -i %s -map 0:1 %s" % (avi_file, wav_file)
     print "sox %s %s rate 44100" % (wav_file, wav_44100_file)
-    print "avconv -i %s -i %s -map 0:0 -map 1:0 -strict experimental %s" % (avi_file, wav_44100_file, mp4_file)
+    print "ffmpeg -i %s -i %s -map 0:0 -map 1:0 -strict experimental %s" % (avi_file, wav_44100_file, mp4_file)
     print
-    print "avconv -i %s %s" % (avi_file, avi_file.replace(".avi", ".webm"))
+    print "ffmpeg -i %s %s" % (avi_file, avi_file.replace(".avi", ".webm"))
     
     sys.exit()
