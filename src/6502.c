@@ -1,4 +1,4 @@
-/*Elkulator v1.0 by Tom Walker
+/*Elkulator v1.0 by Sarah Walker
   6502 emulation*/
 #include <allegro.h>
 #include <stdio.h>

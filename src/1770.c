@@ -1,4 +1,4 @@
-/*Elkulator v1.0 by Tom Walker
+/*Elkulator v1.0 by Sarah Walker
   1770 FDC emulation*/
 #include <stdio.h>
 #include <stdlib.h>
