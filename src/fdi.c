@@ -1,4 +1,4 @@
-/*Elkulator v1.0 by Tom Walker
+/*Elkulator v1.0 by Sarah Walker
   FDI disc support
   Interfaces with fdi2raw.c*/
   

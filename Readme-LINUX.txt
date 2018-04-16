@@ -1,22 +1,39 @@
-Elkulator v1.0 Linux supplement
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Elkulator for Linux
+~~~~~~~~~~~~~~~~~~~
 
 Compiling
 ~~~~~~~~~
 
-You will need the following libraries :
+You will need the following libraries:
 
 Allegro 4.x
 OpenAL
 ALut
 Zlib
 
-Open a terminal window, navigate to the Elkulator directory then enter
+On a Debian system you should be able to install these by invoking the
+following command in a terminal window:
 
-./configure
-make
+  sudo apt-get install automake liballegro4-dev zlib1g-dev libalut-dev libopenal-dev aclocal
 
-then ./elkulator to run.
+To configure and build Elkulator, open a terminal window, navigate to the
+Elkulator directory then enter
+
+  aclocal -I m4
+  automake -a
+  autoconf
+
+This should have produced a configure script that can be used to configure
+the build process. Then type
+
+  ./configure
+  make
+
+If this is successful, typing
+
+  ./elkulator
+
+will run the emulator.
 
 Elkulator has been tested on x86-32 and x86-64 machines. No other architecture is guaranteed
 to work, and big-endian machines (eg PowerPC) almost certainly won't work.
@@ -38,5 +55,5 @@ Video performance is noticeably slower than on Windows. This is largely due to t
 of hardware acceleration support in Elkulator.
 
 
-Tom Walker
+Sarah Walker
 b-em@bbcmicro.com
