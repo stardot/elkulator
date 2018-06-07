@@ -39,7 +39,12 @@ int keylookup[128],keylookup2[128];
 
 int main(int argc, char *argv[])
 {
-        allegro_init();
+        int ret = allegro_init();
+        if (ret != 0)
+        {
+                fprintf(stderr, "Error %d initializing Allegro.\n", ret);
+                exit(-1);
+        }
         initelk(argc,argv);
         install_mouse();
         while (!quited)
