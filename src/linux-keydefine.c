@@ -10,7 +10,7 @@ int keytemp[128];
 
 char *key_names[] =
 {
-   "",         "A",          "B",          "C",
+   "",           "A",          "B",          "C",
    "D",          "E",          "F",          "G",
    "H",          "I",          "J",          "K",
    "L",          "M",          "N",          "O",
@@ -78,14 +78,14 @@ int d_getkey(int msg, DIALOG *d, int cd)
                 }
 
                 textprintf_ex(screen,font,x+8,y+40,makecol(255,255,255),0,s);
-                
+
                 textprintf_ex(screen,font,x+8,y+56,makecol(255,255,255),0,"Please press new key...");
 getnewkey:
                 while (!keypressed());
                 k2=readkey()>>8;
                 if (k2==KEY_F11 || k2==KEY_F12) goto getnewkey;
                 keylookup[k2]=k;
-                
+
                 blit(b,screen,0,0,x,y,200,72);
                 destroy_bitmap(b);
                 while (key[KEY_SPACE]);
@@ -102,16 +102,6 @@ DIALOG bemdefinegui[]=
         {d_button_proc, 205,218,60,28, 15,15,0,D_CLOSE, 0,0,"OK", NULL,NULL},
         {d_button_proc, 271,218,60,28, 15,15,0,D_CLOSE, 0,0,"Cancel", NULL,NULL},
 
-        {d_getkey, 82,10,28,28, 15,15,0,D_EXIT, 0,0,"F0", (void *)KEY_F1,NULL},
-        {d_getkey, 114,10,28,28, 15,15,0,D_EXIT, 0,0,"F1", (void *)KEY_F2,NULL},
-        {d_getkey, 146,10,28,28, 15,15,0,D_EXIT, 0,0,"F2", (void *)KEY_F3,NULL},
-        {d_getkey, 178,10,28,28, 15,15,0,D_EXIT, 0,0,"F3", (void *)KEY_F4,NULL},
-        {d_getkey, 210,10,28,28, 15,15,0,D_EXIT, 0,0,"F4", (void *)KEY_F5,NULL},
-        {d_getkey, 242,10,28,28, 15,15,0,D_EXIT, 0,0,"F5", (void *)KEY_F6,NULL},
-        {d_getkey, 274,10,28,28, 15,15,0,D_EXIT, 0,0,"F6", (void *)KEY_F7,NULL},
-        {d_getkey, 306,10,28,28, 15,15,0,D_EXIT, 0,0,"F7", (void *)KEY_F8,NULL},
-        {d_getkey, 338,10,28,28, 15,15,0,D_EXIT, 0,0,"F8", (void *)KEY_F9,NULL},
-        {d_getkey, 370,10,28,28, 15,15,0,D_EXIT, 0,0,"F9", (void *)KEY_F10,NULL},
         {d_getkey, 10,42,28,28, 15,15,0,D_EXIT, 0,0,"ESC", (void *)KEY_ESC,NULL},
         {d_getkey, 42,42,28,28, 15,15,0,D_EXIT, 0,0,"1", (void *)KEY_1,NULL},
         {d_getkey, 74,42,28,28, 15,15,0,D_EXIT, 0,0,"2", (void *)KEY_2,NULL},
@@ -124,11 +114,11 @@ DIALOG bemdefinegui[]=
         {d_getkey, 298,42,28,28, 15,15,0,D_EXIT, 0,0,"9", (void *)KEY_9,NULL},
         {d_getkey, 330,42,28,28, 15,15,0,D_EXIT, 0,0,"0", (void *)KEY_0,NULL},
         {d_getkey, 362,42,28,28, 15,15,0,D_EXIT, 0,0,"=", (void *)KEY_MINUS,NULL},
-        {d_getkey, 394,42,28,28, 15,15,0,D_EXIT, 0,0,"^", (void *)KEY_EQUALS,NULL},
-        {d_getkey, 426,42,28,28, 15,15,0,D_EXIT, 0,0,"\\", (void *)KEY_BACKSLASH2,NULL},
-        {d_getkey, 458,42,28,28, 15,15,0,D_EXIT, 0,0,"LFT", (void *)KEY_LEFT,"LEFT"},//25
-        {d_getkey, 490,42,28,28, 15,15,0,D_EXIT, 0,0,"RGT", (void *)KEY_RIGHT,"RIGHT"},//26
-        {d_getkey, 10,74,44,28, 15,15,0,D_EXIT, 0,0,"TAB", (void *)KEY_TAB,NULL},
+        {d_getkey, 394,42,28,28, 15,15,0,D_EXIT, 0,0,"LFT", (void *)KEY_LEFT,"LEFT"},
+        {d_getkey, 426,42,28,28, 15,15,0,D_EXIT, 0,0,"RGT", (void *)KEY_RIGHT,"RIGHT"},
+        {d_getkey, 458,42,28,28, 15,15,0,D_EXIT, 0,0,"BRK", (void *)KEY_F12,"BREAK"},
+
+        {d_getkey, 26,74,28,28, 15,15,0,D_EXIT, 0,0,"FN", (void *)KEY_TAB,NULL},
         {d_getkey, 58,74,28,28, 15,15,0,D_EXIT, 0,0,"Q", (void *)KEY_Q,NULL},
         {d_getkey, 90,74,28,28, 15,15,0,D_EXIT, 0,0,"W", (void *)KEY_W,NULL},
         {d_getkey, 122,74,28,28, 15,15,0,D_EXIT, 0,0,"E", (void *)KEY_E,NULL},
@@ -139,43 +129,40 @@ DIALOG bemdefinegui[]=
         {d_getkey, 282,74,28,28, 15,15,0,D_EXIT, 0,0,"I", (void *)KEY_I,NULL},
         {d_getkey, 314,74,28,28, 15,15,0,D_EXIT, 0,0,"O", (void *)KEY_O,NULL},
         {d_getkey, 346,74,28,28, 15,15,0,D_EXIT, 0,0,"P", (void *)KEY_P,NULL},
-        {d_getkey, 378,74,28,28, 15,15,0,D_EXIT, 0,0,"@", (void *)KEY_OPENBRACE,NULL},
-        {d_getkey, 410,74,28,28, 15,15,0,D_EXIT, 0,0,"[", (void *)KEY_CLOSEBRACE,NULL},
-        {d_getkey, 442,74,28,28, 15,15,0,D_EXIT, 0,0,"_", (void *)KEY_TILDE,NULL},
-        {d_getkey, 474,74,28,28, 15,15,0,D_EXIT, 0,0,"UP", (void *)KEY_UP,NULL},//41
-        {d_getkey, 506,74,28,28, 15,15,0,D_EXIT, 0,0,"DWN", (void *)KEY_DOWN,"DOWN"},//42
-        {d_getkey, 10,106,28,28, 15,15,0,D_EXIT, 0,0,"CLK", (void *)KEY_CAPSLOCK,"CAPS LOCK"},
-        {d_getkey, 42,106,28,28, 15,15,0,D_EXIT, 0,0,"CTL", (void *)KEY_LCONTROL,"CTRL"},
-        {d_getkey, 74,106,28,28, 15,15,0,D_EXIT, 0,0,"A", (void *)KEY_A,NULL},
-        {d_getkey, 106,106,28,28, 15,15,0,D_EXIT, 0,0,"S", (void *)KEY_S,NULL},
-        {d_getkey, 138,106,28,28, 15,15,0,D_EXIT, 0,0,"D", (void *)KEY_D,NULL},
-        {d_getkey, 170,106,28,28, 15,15,0,D_EXIT, 0,0,"F", (void *)KEY_F,NULL},
-        {d_getkey, 202,106,28,28, 15,15,0,D_EXIT, 0,0,"G", (void *)KEY_G,NULL},
-        {d_getkey, 234,106,28,28, 15,15,0,D_EXIT, 0,0,"H", (void *)KEY_H,NULL},
-        {d_getkey, 266,106,28,28, 15,15,0,D_EXIT, 0,0,"J", (void *)KEY_J,NULL},
-        {d_getkey, 298,106,28,28, 15,15,0,D_EXIT, 0,0,"K", (void *)KEY_K,NULL},
-        {d_getkey, 330,106,28,28, 15,15,0,D_EXIT, 0,0,"L", (void *)KEY_L,NULL},
-        {d_getkey, 362,106,28,28, 15,15,0,D_EXIT, 0,0,";", (void *)KEY_SEMICOLON,NULL},
-        {d_getkey, 394,106,28,28, 15,15,0,D_EXIT, 0,0,":", (void *)KEY_QUOTE,NULL},
-        {d_getkey, 426,106,28,28, 15,15,0,D_EXIT, 0,0,"]", (void *)KEY_BACKSLASH,NULL},
-        {d_getkey, 458,106,60,28, 15,15,0,D_EXIT, 0,0,"RET", (void *)KEY_ENTER,"RETURN"},
-        {d_getkey, 10,138,28,28, 15,15,0,D_EXIT, 0,0,"SLK", (void *)KEY_ALT,"SHIFT LOCK"},
-        {d_getkey, 42,138,44,28, 15,15,0,D_EXIT, 0,0,"SHIFT", (void *)KEY_LSHIFT,NULL},
-        {d_getkey, 90,138,28,28, 15,15,0,D_EXIT, 0,0,"Z", (void *)KEY_Z,NULL},
-        {d_getkey, 122,138,28,28, 15,15,0,D_EXIT, 0,0,"X", (void *)KEY_X,NULL},
-        {d_getkey, 154,138,28,28, 15,15,0,D_EXIT, 0,0,"C", (void *)KEY_C,NULL},
-        {d_getkey, 186,138,28,28, 15,15,0,D_EXIT, 0,0,"V", (void *)KEY_V,NULL},
-        {d_getkey, 218,138,28,28, 15,15,0,D_EXIT, 0,0,"B", (void *)KEY_B,NULL},
-        {d_getkey, 250,138,28,28, 15,15,0,D_EXIT, 0,0,"N", (void *)KEY_N,NULL},
-        {d_getkey, 282,138,28,28, 15,15,0,D_EXIT, 0,0,"M", (void *)KEY_M,NULL},
-        {d_getkey, 314,138,28,28, 15,15,0,D_EXIT, 0,0,",", (void *)KEY_COMMA,NULL},
-        {d_getkey, 346,138,28,28, 15,15,0,D_EXIT, 0,0,".", (void *)KEY_STOP,NULL},
-        {d_getkey, 378,138,28,28, 15,15,0,D_EXIT, 0,0,"/", (void *)KEY_SLASH,NULL},
-        {d_getkey, 410,138,44,28, 15,15,0,D_EXIT, 0,0,"SHIFT", (void *)KEY_RSHIFT,NULL},
-        {d_getkey, 458,138,28,28, 15,15,0,D_EXIT, 0,0,"DEL", (void *)KEY_DEL,"DELETE"},
-        {d_getkey, 490,138,28,28, 15,15,0,D_EXIT, 0,0,"CPY", (void *)KEY_END,"COPY"},//72
-        {d_getkey, 122,170,256,28, 15,15,0,D_EXIT, 0,0,"SPACE", (void *)KEY_SPACE,NULL},
-        
+        {d_getkey, 378,74,28,28, 15,15,0,D_EXIT, 0,0,"UP", (void *)KEY_UP,NULL},
+        {d_getkey, 410,74,28,28, 15,15,0,D_EXIT, 0,0,"DWN", (void *)KEY_DOWN,"DOWN"},
+        {d_getkey, 442,74,28,28, 15,15,0,D_EXIT, 0,0,"CPY", (void *)KEY_END,NULL},
+
+        {d_getkey, 34,106,28,28, 15,15,0,D_EXIT, 0,0,"CTL", (void *)KEY_LCONTROL,"CTRL"},
+        {d_getkey, 66,106,28,28, 15,15,0,D_EXIT, 0,0,"A", (void *)KEY_A,NULL},
+        {d_getkey, 98,106,28,28, 15,15,0,D_EXIT, 0,0,"S", (void *)KEY_S,NULL},
+        {d_getkey, 130,106,28,28, 15,15,0,D_EXIT, 0,0,"D", (void *)KEY_D,NULL},
+        {d_getkey, 162,106,28,28, 15,15,0,D_EXIT, 0,0,"F", (void *)KEY_F,NULL},
+        {d_getkey, 194,106,28,28, 15,15,0,D_EXIT, 0,0,"G", (void *)KEY_G,NULL},
+        {d_getkey, 226,106,28,28, 15,15,0,D_EXIT, 0,0,"H", (void *)KEY_H,NULL},
+        {d_getkey, 258,106,28,28, 15,15,0,D_EXIT, 0,0,"J", (void *)KEY_J,NULL},
+        {d_getkey, 290,106,28,28, 15,15,0,D_EXIT, 0,0,"K", (void *)KEY_K,NULL},
+        {d_getkey, 322,106,28,28, 15,15,0,D_EXIT, 0,0,"L", (void *)KEY_L,NULL},
+        {d_getkey, 354,106,28,28, 15,15,0,D_EXIT, 0,0,";", (void *)KEY_SEMICOLON,NULL},
+        {d_getkey, 386,106,28,28, 15,15,0,D_EXIT, 0,0,":", (void *)KEY_QUOTE,NULL},
+        {d_getkey, 418,106,44,28, 15,15,0,D_EXIT, 0,0,"RET", (void *)KEY_ENTER,"RETURN"},
+
+        {d_getkey, 34,138,44,28, 15,15,0,D_EXIT, 0,0,"SHIFT", (void *)KEY_LSHIFT,NULL},
+        {d_getkey, 82,138,28,28, 15,15,0,D_EXIT, 0,0,"Z", (void *)KEY_Z,NULL},
+        {d_getkey, 114,138,28,28, 15,15,0,D_EXIT, 0,0,"X", (void *)KEY_X,NULL},
+        {d_getkey, 146,138,28,28, 15,15,0,D_EXIT, 0,0,"C", (void *)KEY_C,NULL},
+        {d_getkey, 178,138,28,28, 15,15,0,D_EXIT, 0,0,"V", (void *)KEY_V,NULL},
+        {d_getkey, 210,138,28,28, 15,15,0,D_EXIT, 0,0,"B", (void *)KEY_B,NULL},
+        {d_getkey, 242,138,28,28, 15,15,0,D_EXIT, 0,0,"N", (void *)KEY_N,NULL},
+        {d_getkey, 274,138,28,28, 15,15,0,D_EXIT, 0,0,"M", (void *)KEY_M,NULL},
+        {d_getkey, 306,138,28,28, 15,15,0,D_EXIT, 0,0,",", (void *)KEY_COMMA,NULL},
+        {d_getkey, 338,138,28,28, 15,15,0,D_EXIT, 0,0,".", (void *)KEY_STOP,NULL},
+        {d_getkey, 370,138,28,28, 15,15,0,D_EXIT, 0,0,"/", (void *)KEY_SLASH,NULL},
+        {d_getkey, 402,138,44,28, 15,15,0,D_EXIT, 0,0,"SHIFT", (void *)KEY_RSHIFT,NULL},
+        {d_getkey, 450,138,28,28, 15,15,0,D_EXIT, 0,0,"DEL", (void *)KEY_DEL,"DELETE"},
+
+        {d_getkey, 130,170,252,28, 15,15,0,D_EXIT, 0,0,"SPACE", (void *)KEY_SPACE,NULL},
+
         {d_yield_proc},
         {0,0,0,0,0,0,0,0,0,0,0,NULL,NULL,NULL}
 };
@@ -192,8 +179,6 @@ int gui_keydefine()
                 d[x].x+=(SCREEN_W/2)-(d[0].w/2);
                 d[x].y+=(SCREEN_H/2)-(d[0].h/2);
                 d[x].fg=0xFFFFFF;
-                if (x>=1 && x<=10) d[x].bg=makecol(127,0,0);
-                if (x==25 || x==26 || x==41 || x==42 || x==72) d[x].bg=makecol(127,127,127);
                 x++;
         }
         for (x=0;x<128;x++) keytemp[x]=keylookup[x];

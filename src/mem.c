@@ -246,7 +246,7 @@ int keys[2][14][4]=
                 {KEY_3,KEY_E,KEY_D,KEY_C},
                 {KEY_2,KEY_W,KEY_S,KEY_X},
                 {KEY_1,KEY_Q,KEY_A,KEY_Z},
-                {KEY_ESC,KEY_TILDE,KEY_RCONTROL,KEY_RSHIFT}
+                {KEY_ESC,KEY_TAB,KEY_RCONTROL,KEY_RSHIFT}
         }
 };
 
