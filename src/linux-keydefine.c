@@ -26,6 +26,30 @@ static void move_widgets(DIALOG *d, int show)
         }
 }
 
+static BITMAP *open_dialog(DIALOG *d)
+{
+        BITMAP *b;
+        int x, y;
+
+        move_widgets(d, 1);
+        x = (SCREEN_W/2) - (d[0].w/2);
+        y = (SCREEN_H/2) - (d[0].h/2);
+        b=create_bitmap(d[0].w, d[0].h);
+        blit(screen, b, x, y, 0, 0, d[0].w, d[0].h);
+
+        return b;
+}
+
+static void close_dialog(DIALOG *d, BITMAP *b)
+{
+        int x, y;
+
+        x = (SCREEN_W/2) - (d[0].w/2);
+        y = (SCREEN_H/2) - (d[0].h/2);
+        blit(b, screen, 0, 0, x, y, d[0].w, d[0].h);
+        move_widgets(d, 0);
+}
+
 char *key_names[] =
 {
    "",           "A",          "B",          "C",
@@ -86,7 +110,7 @@ int d_getkey(int msg, DIALOG *d, int cd)
                 message[0]=0;
                 for (c=0;c<128;c++)
                 {
-                        if (keylookup[c]==k)
+                        if (keytemp[c]==k)
                         {
                                 if (message[0])
                                         strcat(message, ", ");
@@ -101,7 +125,7 @@ getnewkey:
                 while (!keypressed());
                 k2=readkey()>>8;
                 if (k2==KEY_F11 || k2==KEY_F12) goto getnewkey;
-                keylookup[k2]=k;
+                keytemp[k2]=k;
 
                 blit(b,screen,0,0,x,y,200,72);
                 destroy_bitmap(b);
@@ -121,11 +145,11 @@ static const int BG = 0x000000;
 
 DIALOG bemdefinegui[]=
 {
-        /* proc,        x,y,w,h,        fg,bg,  key, flags,   d1, emulated key,   label,    alt label, dp3 */
+        /* proc,        x,y,w,h,        fg,bg,  key, flags,   rc, emulated key,   label,    alt label, dp3 */
 
         {d_box_proc,    0,0,538,238,    FG,BG,  0,   0,       0,  0,              NULL,     NULL,      NULL},
 
-        {d_button_proc, 205,200,60,28,  FG,BG,  0,   D_CLOSE, 0,  0,              "OK",     NULL,      NULL},
+        {d_button_proc, 205,200,60,28,  FG,BG,  0,   D_CLOSE, 1,  0,              "OK",     NULL,      NULL},
         {d_button_proc, 271,200,60,28,  FG,BG,  0,   D_CLOSE, 0,  0,              "Cancel", NULL,      NULL},
 
         {d_getkey,      26,24,28,28,    FG,BG,  0,   D_EXIT,  0,  KEY_ESC,        "ESC",    NULL,      NULL},
@@ -157,7 +181,7 @@ DIALOG bemdefinegui[]=
         {d_getkey,      362,56,28,28,   FG,BG,  0,   D_EXIT,  0,  KEY_P,          "P",      NULL,      NULL},
         {d_getkey,      394,56,28,28,   FG,BG,  0,   D_EXIT,  0,  KEY_UP,         "UP",     NULL,      NULL},
         {d_getkey,      426,56,28,28,   FG,BG,  0,   D_EXIT,  0,  KEY_DOWN,       "DWN",    "DOWN",    NULL},
-        {d_getkey,      458,56,28,28,   FG,BG,  0,   D_EXIT,  0,  KEY_END,        "CPY",    NULL,      NULL},
+        {d_getkey,      458,56,28,28,   FG,BG,  0,   D_EXIT,  0,  KEY_END,        "CPY",    "COPY",    NULL},
 
         {d_getkey,      50,88,28,28,    FG,BG,  0,   D_EXIT,  0,  KEY_LCONTROL,   "CTL",    "CTRL",    NULL},
         {d_getkey,      82,88,28,28,    FG,BG,  0,   D_EXIT,  0,  KEY_A,          "A",      NULL,      NULL},
@@ -197,30 +221,26 @@ DIALOG bemdefinegui[]=
 int gui_keydefine()
 {
         DIALOG_PLAYER *dp;
-        BITMAP *b;
         DIALOG *d=bemdefinegui;
-        int x=0,y;
+        BITMAP *b;
+        int x;
+        int i;
 
-        move_widgets(d, 1);
-        for (x=0;x<128;x++) keytemp[x]=keylookup[x];
-        x=(SCREEN_W/2)-(d[0].w/2);
-        y=(SCREEN_H/2)-(d[0].h/2);
-        b=create_bitmap(d[0].w,d[0].h);
-        blit(screen,b,x,y,0,0,d[0].w,d[0].h);
-        dp=init_dialog(d,0);
-        while (x && !key[KEY_F11] && !(mouse_b&2) && !key[KEY_ESC])
-        {
-                x=update_dialog(dp);
-        }
-        shutdown_dialog(dp);
-        if (x==1)
-        {
-                for (x=0;x<128;x++) keylookup[x]=keytemp[x];
-        }
-        x=(SCREEN_W/2)-(d[0].w/2);
-        y=(SCREEN_H/2)-(d[0].h/2);
-        blit(b,screen,0,0,x,y,d[0].w,d[0].h);
-        move_widgets(d, 0);
+        for (x = 0; x < 128; x++) keytemp[x] = keylookup[x];
+
+        b = open_dialog(d);
+        dp = init_dialog(d, 0);
+
+        while (update_dialog(dp) && !key[KEY_F11] && !(mouse_b&2) && !key[KEY_ESC]);
+
+        /* Determine which button caused the dialogue to close. */
+
+        i = shutdown_dialog(dp);
+
+        if (d[i].d1)
+                for (x = 0; x < 128; x++) keylookup[x] = keytemp[x];
+
+        close_dialog(d, b);
         return D_O_K;
 }
 #endif
