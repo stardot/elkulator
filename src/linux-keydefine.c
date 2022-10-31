@@ -8,6 +8,24 @@
 
 int keytemp[128];
 
+/* Convert widget positions to or from screen positions. */
+
+static void move_widgets(DIALOG *d, int show)
+{
+        int x = 0, adjustment;
+
+        for (x = 0; d[x].proc; x++)
+        {
+                adjustment = (SCREEN_W/2) - (d[0].w/2);
+                adjustment = show ? adjustment : -adjustment;
+                d[x].x += adjustment;
+
+                adjustment = (SCREEN_H/2) - (d[0].h/2);
+                adjustment = show ? adjustment : -adjustment;
+                d[x].y += adjustment;
+        }
+}
+
 char *key_names[] =
 {
    "",           "A",          "B",          "C",
@@ -182,12 +200,8 @@ int gui_keydefine()
         BITMAP *b;
         DIALOG *d=bemdefinegui;
         int x=0,y;
-        while (d[x].proc)
-        {
-                d[x].x+=(SCREEN_W/2)-(d[0].w/2);
-                d[x].y+=(SCREEN_H/2)-(d[0].h/2);
-                x++;
-        }
+
+        move_widgets(d, 1);
         for (x=0;x<128;x++) keytemp[x]=keylookup[x];
         x=(SCREEN_W/2)-(d[0].w/2);
         y=(SCREEN_H/2)-(d[0].h/2);
@@ -206,13 +220,7 @@ int gui_keydefine()
         x=(SCREEN_W/2)-(d[0].w/2);
         y=(SCREEN_H/2)-(d[0].h/2);
         blit(b,screen,0,0,x,y,d[0].w,d[0].h);
-        x=0;
-        while (d[x].proc)
-        {
-                d[x].x -= (SCREEN_W / 2) - (d[0].w / 2);
-                d[x].y -= (SCREEN_H / 2) - (d[0].h / 2);
-                x++;
-        }
+        move_widgets(d, 0);
         return D_O_K;
 }
 #endif
