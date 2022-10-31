@@ -48,6 +48,7 @@ static void close_dialog(DIALOG *d, BITMAP *b)
         y = (SCREEN_H/2) - (d[0].h/2);
         blit(b, screen, 0, 0, x, y, d[0].w, d[0].h);
         move_widgets(d, 0);
+        destroy_bitmap(b);
 }
 
 char *key_names[] =
