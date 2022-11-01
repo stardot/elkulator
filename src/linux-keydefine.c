@@ -3,7 +3,6 @@
 
 #ifndef WIN32
 #include <allegro.h>
-#include <string.h>
 #include "elk.h"
 
 int keytemp[128];
@@ -51,6 +50,11 @@ static void close_dialog(DIALOG *d, BITMAP *b)
         destroy_bitmap(b);
 }
 
+/* Constant colours. */
+
+static const int FG = 0xffffff;
+static const int BG = 0x000000;
+
 char *key_names[] =
 {
    "",           "A",          "B",          "C",
@@ -87,64 +91,261 @@ char *key_names[] =
    "SCRLOCK",    "NUMLOCK",    "CAPSLOCK",   "MAX"
 };
 
-int d_getkey(int msg, DIALOG *d, int cd)
-{
-        BITMAP *b;
-        int x,y;
-        int ret = d_button_proc(msg, d, cd);
-        int k,k2;
-        int c;
-        char message[1024];
-        if (ret==D_EXIT)
-        {
-                k=(int)d->d2;
-                x=(SCREEN_W/2)-100;
-                y=(SCREEN_H/2)-36;
-                b=create_bitmap(200,72);
-                blit(screen,b,x,y,0,0,200,72);
-                rectfill(screen,x,y,x+199,y+71,makecol(0,0,0));
-                rect(screen,x,y,x+199,y+71,makecol(255,255,255));
-                if (d->dp2) textprintf_ex(screen,font,x+8,y+8,makecol(255,255,255),0,"Redefining %s",(char *)d->dp2);
-                else        textprintf_ex(screen,font,x+8,y+8,makecol(255,255,255),0,"Redefining %s",(char *)d->dp);
-                textprintf_ex(screen,font,x+8,y+24,makecol(255,255,255),0,"Assigned to PC key(s) :");
+/* Key reading control. */
 
-                message[0]=0;
-                for (c=0;c<128;c++)
+#define MAX_KEYS 5
+
+static int key_to_define;
+static int current_keys[MAX_KEYS];
+static char keysel[MAX_KEYS];
+
+static void populate_current_keys()
+{
+        int i, count;
+
+        /* Clear current keys. */
+
+        for (i = 0; i < MAX_KEYS; i++)
+                current_keys[i] = -1;
+
+        /* Populate with registered keys. */
+
+        for (i = 0, count = 0; (i < 128) && (count < MAX_KEYS); i++)
+        {
+                if (keytemp[i] == key_to_define)
                 {
-                        if (keytemp[c]==k)
+                        current_keys[count] = i;
+                        count++;
+                }
+        }
+}
+
+static void update_defined_keys()
+{
+        int i;
+
+        /* Reset to defaults. */
+
+        for (i = 0; i < 128; i++)
+                if (keytemp[i] == key_to_define)
+                        keytemp[i] = -1;
+
+        /* Apply changes. */
+
+        for (i = 0; (i < MAX_KEYS) && (current_keys[i] != -1); i++)
+                keytemp[current_keys[i]] = key_to_define;
+}
+
+static char *get_current_keys(int index, int *list_size)
+{
+        int i;
+
+        /* Return the number of defined keys. */
+
+        if (index < 0)
+        {
+                for (i = 0; i < MAX_KEYS; i++)
+                        if (current_keys[i] == -1)
+                                break;
+
+                *list_size = i;
+                return NULL;
+        }
+
+        /* Otherwise, return the name of the indicated key. */
+
+        else
+                return key_names[current_keys[index]];
+}
+
+static int d_assign_key(int msg, DIALOG *d, int c)
+{
+        int ret = d_button_proc(msg, d, c);
+        int i, code, assigned = 0, have_code;
+
+        if (ret == D_EXIT)
+        {
+                do
+                {
+                        if (keyboard_needs_poll())
+                                poll_keyboard();
+
+                        /* Manually scan the keys to obtain the one being
+                           pressed. This includes modifier keys that cannot be
+                           easily detected otherwise. */
+
+                        have_code = 0;
+
+                        for (code = 0; code < 128; code++)
                         {
-                                if (message[0])
-                                        strcat(message, ", ");
-                                strcat(message, key_names[c]);
+                                if (key[code])
+                                {
+                                        have_code = 1;
+
+                                        if (assigned)
+                                                break;
+
+                                        /* Find a slot to record the key. */
+
+                                        for (i = 0; (i < MAX_KEYS) &&
+                                                    (current_keys[i] != -1) &&
+                                                    (current_keys[i] != code); i++);
+
+                                        /* Record any new key and update the
+                                           display. */
+
+                                        if ((i < MAX_KEYS) && (current_keys[i] != code))
+                                        {
+                                                current_keys[i] = code;
+
+                                                if (d->dp2 != NULL)
+                                                        object_message(d->dp2, MSG_DRAW, 0);
+                                        }
+
+                                        assigned = 1;
+                                }
+                        }
+
+                        /* Exit only when no more keys are being pressed, also
+                           clearing any keypresses which seems to be necessary
+                           to deal with Escape. */
+
+                        if (assigned && !have_code)
+                        {
+                                while (keypressed()) readkey();
+
+                                return D_O_K;
                         }
                 }
-
-                textprintf_ex(screen,font,x+8,y+40,makecol(255,255,255),0,message);
-
-                textprintf_ex(screen,font,x+8,y+56,makecol(255,255,255),0,"Please press new key...");
-getnewkey:
-                while (!keypressed());
-                k2=readkey()>>8;
-                if (k2==KEY_F11 || k2==KEY_F12) goto getnewkey;
-                keytemp[k2]=k;
-
-                blit(b,screen,0,0,x,y,200,72);
-                destroy_bitmap(b);
-                while (key[KEY_SPACE]);
-                while (keypressed()) readkey();
-                return 0;
+                while (1);
         }
+
         return ret;
+}
+
+static int d_remove_key(int msg, DIALOG *d, int c)
+{
+        int ret = d_button_proc(msg, d, c);
+        int size, i, j;
+
+        get_current_keys(-1, &size);
+
+        if (ret == D_EXIT)
+        {
+                /* Traverse the current keys. */
+
+                for (i = 0, j = i; i < size; i++)
+                {
+                        /* Obtain the next unselected key. */
+
+                        for (; (j < size) && keysel[j]; j++);
+
+                        /* Copy unselected keys to the start of the list. */
+
+                        if (j < size)
+                        {
+                                if (i != j)
+                                        current_keys[i] = current_keys[j];
+                                j++;
+                        }
+
+                        /* Erase any selected keys at the end of the list. */
+
+                        else
+                                current_keys[i] = -1;
+                }
+
+                if (d->dp2 != NULL)
+                        object_message(d->dp2, MSG_DRAW, 0);
+
+                return D_O_K;
+        }
+
+        return ret;
+}
+
+/* Key definition dialogue. */
+
+static char msg_redefine[] = "Redefining XXXXXXXXXXXX";
+static char msg_assigned[] = "Assigned to keys:";
+static char msg_assign[]   = "Assign new key";
+static char msg_remove[]   = "Remove key";
+
+DIALOG bemdefinekeygui[] =
+{
+        /* proc,        x,y,w,h,        fg,bg,  key, flags,   d1, d2, label,            dp2,  dp3 */
+
+        {d_box_proc,    0,0,200,236,    FG,BG,  0,   0,       0,  0,  NULL,             NULL, NULL},
+
+        {d_ctext_proc,  100,8,0,0,      FG,BG,  0,   0,       0,  0,  msg_redefine,     NULL, NULL},
+        {d_ctext_proc,  100,24,0,0,     FG,BG,  0,   0,       0,  0,  msg_assigned,     NULL, NULL},
+        {d_list_proc,   20,40,160,80,   FG,BG,  0,   0,       0,  0,  get_current_keys, keysel, NULL},
+        {d_assign_key,  20,128,160,28,  FG,BG,  0,   D_EXIT,  0,  0,  msg_assign,       NULL, NULL},
+        {d_remove_key,  20,164,160,28,  FG,BG,  0,   D_EXIT,  0,  0,  msg_remove,       NULL, NULL},
+
+        {d_button_proc, 36,200,60,28,   FG,BG,  0,   D_CLOSE, 1,  0,  "OK",             NULL, NULL},
+        {d_button_proc, 104,200,60,28,  FG,BG,  0,   D_CLOSE, 0,  0,  "Cancel",         NULL, NULL},
+
+        {d_yield_proc},
+        {0,             0,0,0,0,        0,0,    0,   0,       0,  0,  NULL,             NULL, NULL}
+};
+
+static int gui_keydefine_input(DIALOG *kd)
+{
+        DIALOG_PLAYER *dp;
+        DIALOG *d=bemdefinekeygui;
+        BITMAP *b;
+        int i;
+
+        key_to_define = kd->d2;
+
+        /* Wire up the buttons to the list. */
+
+        d[4].dp2 = &d[3];
+        d[5].dp2 = &d[3];
+
+        sprintf(msg_redefine, "Redefining %s", kd->dp2 != NULL ? kd->dp2 : kd->dp);
+
+        /* Initialise the current key list. */
+
+        populate_current_keys();
+
+        b = open_dialog(d);
+        dp = init_dialog(d, 0);
+
+        while (update_dialog(dp) && !key[KEY_F11] && !(mouse_b&2) && !key[KEY_ESC]);
+
+        /* Determine which button caused the dialogue to close. */
+
+        i = shutdown_dialog(dp);
+
+        /* Update the temporary mapping if OK was pressed. */
+
+        if (d[i].d1)
+                update_defined_keys();
+
+        close_dialog(d, b);
+        return D_O_K;
+}
+
+static int d_getkey(int msg, DIALOG *d, int cd)
+{
+        int ret = d_button_proc(msg, d, cd);
+
+        if (ret == D_EXIT)
+        {
+                gui_keydefine_input(d);
+                return D_O_K;
+        }
+        else
+                return ret;
 }
 
 /* Keyboard dialogue with emulated key values represented by Allegro keycodes.
    Note that keycodes from actual keypresses are converted to these key values
    via the keylookup table. */
 
-static const int FG = 0xffffff;
-static const int BG = 0x000000;
-
-DIALOG bemdefinegui[]=
+DIALOG bemdefinegui[] =
 {
         /* proc,        x,y,w,h,        fg,bg,  key, flags,   rc, emulated key,   label,    alt label, dp3 */
 
@@ -218,16 +419,16 @@ DIALOG bemdefinegui[]=
         {0,             0,0,0,0,        0,0,    0,   0,       0,  0,              NULL,     NULL,      NULL}
 };
 
-
 int gui_keydefine()
 {
         DIALOG_PLAYER *dp;
         DIALOG *d=bemdefinegui;
         BITMAP *b;
-        int x;
         int i;
 
-        for (x = 0; x < 128; x++) keytemp[x] = keylookup[x];
+        /* Initialise the temporary mapping. */
+
+        for (i = 0; i < 128; i++) keytemp[i] = keylookup[i];
 
         b = open_dialog(d);
         dp = init_dialog(d, 0);
@@ -238,8 +439,10 @@ int gui_keydefine()
 
         i = shutdown_dialog(dp);
 
+        /* Update the saved mapping if OK was pressed. */
+
         if (d[i].d1)
-                for (x = 0; x < 128; x++) keylookup[x] = keytemp[x];
+                for (i = 0; i < 128; i++) keylookup[i] = keytemp[i];
 
         close_dialog(d, b);
         return D_O_K;
