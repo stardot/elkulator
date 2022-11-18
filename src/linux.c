@@ -50,7 +50,7 @@ int main(int argc, char *argv[])
         while (!quited)
         {
                 runelk();
-                if (key[KEY_F11]) entergui();
+                if (menu_pressed()) entergui();
         }
         closeelk();
         return 0;

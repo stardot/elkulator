@@ -270,9 +270,10 @@ void makekeyl()
                 }
         }
 
-        /* Record the Break keys separately. */
+        /* Record the Break keys separately, along with configurable menu keys. */
 
         update_break_keys();
+        update_menu_keys();
 }
 
 uint8_t readkeys(uint16_t addr)

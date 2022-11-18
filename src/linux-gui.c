@@ -666,7 +666,7 @@ void entergui()
         //BITMAP *guib;
         
         while (keypressed()) readkey();
-        while (key[KEY_F11]) rest(100);
+        while (menu_pressed()) rest(100);
 
         updatelinuxgui();
 
@@ -684,7 +684,7 @@ void entergui()
                 allegro_gl_set_allegro_mode();
         }*/
         dp=init_dialog(bemgui,0);
-        while (x && !key[KEY_F11] && !key[KEY_ESC])
+        while (x && !menu_pressed() && !key[KEY_ESC])
         {
 /*                if (opengl)
                 {
@@ -719,7 +719,7 @@ void entergui()
         }*/
         set_color_depth(8);
 
-        while (key[KEY_F11]) rest(100);
+        while (menu_pressed()) rest(100);
 
         clearscreen();
 }

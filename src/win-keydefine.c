@@ -283,16 +283,25 @@ void redefinekeys()
         DialogBox(ghinstance,TEXT("Redefine"),ghwnd,redefinedlgproc);
 }
 
-/* Currently, just use F12 for Break on Windows as is traditional in
-   Elkulator. */
+/* Currently, just use F11 and F12 for menu and Break on Windows, as is
+   traditional in Elkulator. */
 
 void update_break_keys()
+{
+}
+
+void update_menu_keys()
 {
 }
 
 int break_pressed()
 {
         return key[KEY_F12];
+}
+
+int menu_pressed()
+{
+        return key[KEY_F11];
 }
 
 #endif
