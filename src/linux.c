@@ -35,7 +35,7 @@ void endblit()
 {
 }
 
-int keylookup[128],keylookup2[128];
+int keylookup[128];
 
 int main(int argc, char *argv[])
 {

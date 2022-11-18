@@ -256,6 +256,9 @@ void makekeyl()
 {
         int c,d,e;
         memset(keyl,0,sizeof(keyl));
+
+        /* Establish a mapping from emulated key presses to keyboard matrix values. */
+
         for (c=0;c<14;c++)
         {
                 for (d=0;d<4;d++)
@@ -266,6 +269,10 @@ void makekeyl()
                         }
                 }
         }
+
+        /* Record the Break keys separately. */
+
+        update_break_keys();
 }
 
 uint8_t readkeys(uint16_t addr)

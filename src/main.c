@@ -179,9 +179,10 @@ void initelk(int argc, char *argv[])
 }
 
 int ddnoiseframes=0;
-int oldf12=0;
+int oldbreak=0;
 int resetit=0;
 int runelkframe=0;
+
 void runelk()
 {
         int c;
@@ -199,11 +200,11 @@ void runelk()
                         reset6502();
                         resetit=0;
                 }
-                if (key[KEY_F12] && !oldf12)
+                if (break_pressed() && !oldbreak)
                 {
                         reset6502();
                 }
-                oldf12=key[KEY_F12];
+                oldbreak = break_pressed();
                 if (wantloadstate) doloadstate();
                 if (wantsavestate) dosavestate();
                 if (infocus) poll_joystick();

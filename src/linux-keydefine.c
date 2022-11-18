@@ -98,6 +98,7 @@ char *key_names[] =
 static int key_to_define;
 static int current_keys[MAX_KEYS];
 static char keysel[MAX_KEYS];
+static int break_keys[MAX_KEYS];
 
 static void populate_current_keys()
 {
@@ -442,9 +443,41 @@ int gui_keydefine()
         /* Update the saved mapping if OK was pressed. */
 
         if (d[i].d1)
+        {
                 for (i = 0; i < 128; i++) keylookup[i] = keytemp[i];
+                update_break_keys();
+        }
 
         close_dialog(d, b);
         return D_O_K;
 }
+
+void update_break_keys()
+{
+        int i, j = 0;
+
+        for (i = 0; i < 128; i++)
+        {
+                if (keylookup[i] == KEY_F12)
+                        break_keys[j++] = i;
+        }
+
+        while (j < MAX_KEYS) break_keys[j++] = -1;
+}
+
+int break_pressed()
+{
+        int i;
+
+        for (i = 0; i < MAX_KEYS; i++)
+        {
+                if (break_keys[i] == -1)
+                        break;
+                else if (key[break_keys[i]])
+                        return 1;
+        }
+
+        return 0;
+}
+
 #endif
