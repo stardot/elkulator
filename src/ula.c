@@ -173,12 +173,14 @@ void resetula()
 
 void updateulaints()
 {
-        if (ula.isr&ula.ier&0x7C)
+        if (ula.isr & ula.ier & 0x7C)
         {
                 ula.isr|=1;
                 irq=1;
 //                printf("Interrupt %02X %02X\n",ula.isr,ula.ier);
         }
+        else if (ula.isr & 0x01)
+                irq = 1;
         else
         {
                 ula.isr&=~1;
@@ -198,6 +200,12 @@ void intula(uint8_t num)
         }
 //        if (num&0x10) printf("INT &0x10\n");
         ula.isr|=num;
+        updateulaints();
+}
+
+void clearintula(uint8_t num)
+{
+        ula.isr &= ~num;
         updateulaints();
 }
 

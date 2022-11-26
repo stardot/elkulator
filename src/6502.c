@@ -1756,6 +1756,7 @@ void exec6502()
                                         plus1stat&=~0x40;
                                 }
                         }
+                        if (plus1) pollserial(oldcycs);
                 }
                         if (tapespeed==TAPE_REALLY)
                         {

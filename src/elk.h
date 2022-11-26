@@ -248,6 +248,7 @@ void writeula(uint16_t addr, uint8_t val);
 void yield();
 void waitforramsync();
 void intula(uint8_t num);
+void clearintula(uint8_t num);
 void receive(uint8_t val);
 void enterfullscreen();
 void leavefullscreen();
@@ -260,6 +261,11 @@ void saveulastate(FILE *f);
 void reset1770();
 uint8_t read1770(uint16_t addr);
 void write1770(uint16_t addr, uint8_t val);
+
+void resetserial();
+uint8_t readserial(uint16_t addr);
+void writeserial(uint16_t addr, uint8_t val);
+void pollserial(int cycles);
 
 void loadtape(char *fn);
 void reallyfasttapepoll();

@@ -151,6 +151,7 @@ void initelk(int argc, char *argv[])
         initula();
         resetula();
         reset1770();
+        resetserial();
         
         loadtape(tapename);
         loaddisc(0,discname);
