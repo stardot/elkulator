@@ -374,6 +374,11 @@ static struct channel channels[2];
 
 /* Channel settings. */
 
+static char channel_id(struct channel *ch)
+{
+        return ch == &channels[0] ? 'A' : 'B';
+}
+
 static int channel_baud_rate_receive_index(struct channel *ch)
 {
         return (ch->CSR & CSR_receive) >> CSR_receive_shift;
@@ -414,7 +419,7 @@ static void channel_clock_select(struct channel *ch, uint8_t val)
         ch->CSR = val;
 
         fprintf(stderr, "CSR%c: receiver=%s transmitter=%s\n",
-                ch == &channels[0] ? 'A' : 'B',
+                channel_id(ch),
                 baud_rate_labels[baud_rate_group()][channel_baud_rate_receive_index(ch)],
                 baud_rate_labels[baud_rate_group()][channel_baud_rate_transmit_index(ch)]);
 
@@ -528,12 +533,20 @@ static void channel_reset(struct channel *ch)
 
 static void channel_rts_clear(struct channel *ch)
 {
-        ch->rts = 0;
+        if (ch->rts)
+        {
+                fprintf(stderr, "%c: ~RTS\n", channel_id(ch));
+                ch->rts = 0;
+        }
 }
 
 static void channel_rts_set(struct channel *ch)
 {
-        ch->rts = 1;
+        if (!ch->rts)
+        {
+                fprintf(stderr, "%c: RTS\n", channel_id(ch));
+                ch->rts = 1;
+        }
 }
 
 static void channel_set_mode(struct channel *ch, uint8_t val)
@@ -542,7 +555,7 @@ static void channel_set_mode(struct channel *ch, uint8_t val)
         {
                 case MR1:
                 fprintf(stderr, "MR1%c: BPC=%d parity=\"%s\" mode=\"%s\" error=%s RxINT=%s RxRTS=%s\n",
-                        ch == &channels[0] ? 'A' : 'B',
+                        channel_id(ch),
                         channel_bpc(ch),
                         val & MR1_parity_type ? "odd" : "even",
                         parity_mode[(val & MR1_parity_mode) >> MR1_parity_mode_shift],
@@ -553,7 +566,7 @@ static void channel_set_mode(struct channel *ch, uint8_t val)
 
                 case MR2:
                 fprintf(stderr, "MR2%c: stop=%s TxCTS=%s TxRTS=%s channel=%s\n",
-                        ch == &channels[0] ? 'A' : 'B',
+                        channel_id(ch),
                         (channel_bpc(ch) == 5 ? stop_bits_5bpc : stop_bits)[val & MR2_stop_bits],
                         val & MR2_TxCTS ? "yes" : "no",
                         val & MR2_TxRTS ? "yes" : "no",
@@ -567,9 +580,7 @@ static void channel_set_mode(struct channel *ch, uint8_t val)
 
 static void channel_write(struct channel *ch, uint8_t val)
 {
-        fprintf(stderr, "THR%c: %02x\n",
-                ch == &channels[0] ? 'A' : 'B',
-                val);
+        fprintf(stderr, "THR%c: %02x\n", channel_id(ch), val);
 
         if (ch->SR & CR_enable_Tx)
         {
@@ -586,7 +597,7 @@ static void channel_command(struct channel *ch, uint8_t val)
         int Rx_op = val & (CR_enable_Rx | CR_disable_Rx);
         int Tx_op = val & (CR_enable_Tx | CR_disable_Tx);
 
-        fprintf(stderr, "CR%c:", ch == &channels[0] ? 'A' : 'B');
+        fprintf(stderr, "CR%c:", channel_id(ch));
 
         fprintf(stderr, " command=\"%s\"",
                 commands[(val & CR_command) >> CR_command_shift]);
@@ -791,7 +802,7 @@ static void transmit_data(struct channel *ch)
                                  descriptor for external use. */
 
                         fprintf(stderr, "OUT %c: %02x\n",
-                                ch == &channels[0] ? 'A' : 'B',
+                                channel_id(ch),
                                 ch->output_char);
                 }
         }
@@ -835,7 +846,6 @@ static uint8_t read_input_port_change()
 
 static void reset_output_port(uint8_t val)
 {
-        fprintf(stderr, "ROPBC: %02x\n", val);
         if (val & OPBC_RTSAN)
                 channel_rts_set(&channels[0]);
         if (val & OPBC_RTSBN)
@@ -846,7 +856,6 @@ void serialinput(int);
 
 static void set_output_port(uint8_t val)
 {
-        fprintf(stderr, "SOPBC: %02x\n", val);
         if (val & OPBC_RTSAN)
                 channel_rts_clear(&channels[0]);
         if (val & OPBC_RTSBN)
