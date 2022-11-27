@@ -22,11 +22,14 @@
 #include <stdio.h>
 #include "elk.h"
 
+#include <fcntl.h>
+#include <poll.h>
 
 
-/* Serial cycle counter. */
 
-static int serial_cycles;
+/* Serial cycle counters. */
+
+static int receive_cycles, transmit_cycles;
 
 
 
@@ -84,7 +87,7 @@ enum MR_indexes
 enum MR1_bits
 {
         MR1_RxRTS = 0x80,
-        MR1_RxINT = 0x40,
+        MR1_RxINT_FFULL = 0x40,
         MR1_block_error = 0x20,
         MR1_parity_mode = 0x18,
         MR1_parity_mode_shift = 3,
@@ -281,27 +284,67 @@ static int baud_rate_group()
 
 
 
+/* Input port handling. */
+
+static uint8_t get_input_port_change()
+{
+        uint8_t changed = 0;
+        int i;
+
+        /* Use the previous contents of IPCR together with IP06 for IP0..3 to
+           determine the new contents. */
+
+        for (i = 0; i < 4; i++)
+        {
+                if ((sr[IP06] & (1 << i)) != (sr[IPCR] & (1 << i)))
+                        changed |= (1 << i);
+        }
+
+        /* IPCR = delta (IP3..0) | IP3..0 */
+
+        sr[IPCR] = (changed << 4) | (sr[IP06] & 0x0f);
+        return changed;
+}
+
+static uint8_t read_input_port_change()
+{
+        /* Reset the interrupt status flag. */
+
+        sr[ISR] &= ~ISR_IP_change;
+        return sr[IPCR];
+}
+
+/* Change input port state. */
+
+static void set_input_state(int enable)
+{
+        if (enable)
+                sr[IP06] |= IP06_IP2;
+        else
+                sr[IP06] &= ~IP06_IP2;
+
+        /* Test for changed state and assert an interrupt condition. */
+
+        if (get_input_port_change())
+                sr[ISR] |= ISR_IP_change;
+}
+
+
+
 /* Channel-related state abstractions. */
 
 /* Receive holding register FIFO for RHRA and RHRB. */
-
-struct rhr_flags
-{
-        unsigned int parity_error : 1;
-        unsigned int framing_error : 1;
-        unsigned int received_break : 1;
-};
 
 struct rhr_fifo
 {
         /* FIFO data and flag storage. */
 
-        uint8_t data[3];
-        struct rhr_flags flags[3];
+        uint8_t data[3], flags[3];
 
         /* Front and back of the received data. */
 
         int front, back;
+        int empty;
 };
 
 static void reset_fifo(struct rhr_fifo *fifo)
@@ -311,11 +354,12 @@ static void reset_fifo(struct rhr_fifo *fifo)
         for (i = 0; i < 3; i++)
         {
                 fifo->data[i] = 0;
-                fifo->flags[i] = (struct rhr_flags) {0, 0, 0};
+                fifo->flags[i] = 0;
         }
 
         fifo->front = 0;
         fifo->back = 0;
+        fifo->empty = 1;
 }
 
 /* A channel abstraction. */
@@ -339,6 +383,7 @@ struct channel
 
         int transmit_enabled, receive_enabled;
         int break_started;
+        int rsr_occupied;
 
         /* State to detect THR usage separately from TxEMT. */
 
@@ -355,15 +400,17 @@ struct channel
 
         /* Channel-dependent values for common registers. */
 
-        uint8_t IP06_CTS_flag, ISR_delta_break_flag, ISR_TxRDY_flag;
+        uint8_t IP06_CTS_flag, ISR_delta_break_flag, ISR_RxRDY_FFULL_flag,
+                ISR_TxRDY_flag;
 
         /* Cycles per character. */
 
         int receive_cycles, transmit_cycles;
 
-        /* The output character actually sent. */
+        /* The input and output characters actually exchanged. */
 
-        uint8_t output_char;
+        uint8_t input_char, output_char;
+        int have_input;
 };
 
 /* The channel objects. */
@@ -413,6 +460,24 @@ static int channel_bpc(struct channel *ch)
 }
 
 /* Channel operations. */
+
+static void channel_rts_clear(struct channel *ch)
+{
+        if (ch->rts)
+        {
+                fprintf(stderr, "%c: ~RTS\n", channel_id(ch));
+                ch->rts = 0;
+        }
+}
+
+static void channel_rts_set(struct channel *ch)
+{
+        if (!ch->rts)
+        {
+                fprintf(stderr, "%c: RTS\n", channel_id(ch));
+                ch->rts = 1;
+        }
+}
 
 static void channel_clock_select(struct channel *ch, uint8_t val)
 {
@@ -470,15 +535,90 @@ static uint8_t channel_get_mode(struct channel *ch)
         return val;
 }
 
+static void channel_push_fifo(struct channel *ch)
+{
+        ch->fifo.data[ch->fifo.back] = ch->rsr;
+        ch->fifo.back = (ch->fifo.back + 1) % 3;
+
+        /* Set the RxRDY condition when an empty FIFO has been populated. */
+
+        if (ch->fifo.empty)
+        {
+                ch->SR |= SR_RxRDY;
+
+                if (!(ch->mr[MR1] & MR1_RxINT_FFULL))
+                        sr[ISR] |= ch->ISR_RxRDY_FFULL_flag;
+
+                ch->fifo.empty = 0;
+        }
+
+        /* Handle newly filled FIFO. */
+
+        if (ch->fifo.front == ch->fifo.back)
+        {
+                ch->SR |= SR_FFULL;
+
+                if (ch->mr[MR1] & MR1_RxINT_FFULL)
+                        sr[ISR] |= ch->ISR_RxRDY_FFULL_flag;
+
+                /* Receiver request-to-send (RTS)
+                   control. */
+
+                if (ch->mr[MR1] & MR1_RxRTS)
+                        channel_rts_set(ch);
+        }
+
+        /* Vacate the shift register. */
+
+        ch->rsr_occupied = 0;
+}
+
 static uint8_t channel_read(struct channel *ch)
 {
         uint8_t val = ch->fifo.data[ch->fifo.front];
 
-        if (ch->fifo.front != ch->fifo.back)
+        /* Detect any remaining data. */
+
+        if (!ch->fifo.empty)
                 ch->fifo.front = (ch->fifo.front + 1) % 3;
+
+        /* Detect any empty condition. */
+
+        if (ch->fifo.front == ch->fifo.back)
+        {
+                ch->fifo.empty = 1;
+                ch->SR &= ~SR_RxRDY;
+
+                if (!(ch->mr[MR1] & MR1_RxINT_FFULL))
+                        sr[ISR] &= ~ch->ISR_RxRDY_FFULL_flag;
+        }
+
+        /* Clear any full condition. */
+
+        ch->SR &= ~SR_FFULL;
+
+        if (ch->mr[MR1] & MR1_RxINT_FFULL)
+                sr[ISR] &= ~ch->ISR_RxRDY_FFULL_flag;
+
+        /* Vacate the shift register, if occupied. */
+
+        if (ch->rsr_occupied)
+                channel_push_fifo(ch);
+        else
+        {
+                /* Receiver request-to-send (RTS) control. */
+
+                if (ch->mr[MR1] & MR1_RxRTS)
+                        channel_rts_clear(ch);
+        }
+
+        /* Update status register error flags. */
 
         if (!(ch->mr[MR1] & MR1_block_error))
                 ch->SR &= ~(SR_receive_break | SR_parity_error | SR_framing_error);
+
+        if (!ch->fifo.empty)
+                ch->SR |= ch->fifo.flags[ch->fifo.front];
 
         return val;
 }
@@ -497,6 +637,7 @@ static void channel_reset_receiver(struct channel *ch)
         ch->mr_index = 0;
         ch->rsr = 0;
         ch->rsr_bits_received = 0;
+        ch->rsr_occupied = 0;
 }
 
 static void channel_reset_transmitter(struct channel *ch)
@@ -529,24 +670,8 @@ static void channel_reset(struct channel *ch)
 
         for (pos = 0; pos < 2; pos++)
                 ch->mr[pos] = 0;
-}
 
-static void channel_rts_clear(struct channel *ch)
-{
-        if (ch->rts)
-        {
-                fprintf(stderr, "%c: ~RTS\n", channel_id(ch));
-                ch->rts = 0;
-        }
-}
-
-static void channel_rts_set(struct channel *ch)
-{
-        if (!ch->rts)
-        {
-                fprintf(stderr, "%c: RTS\n", channel_id(ch));
-                ch->rts = 1;
-        }
+        ch->have_input = 0;
 }
 
 static void channel_set_mode(struct channel *ch, uint8_t val)
@@ -560,7 +685,7 @@ static void channel_set_mode(struct channel *ch, uint8_t val)
                         val & MR1_parity_type ? "odd" : "even",
                         parity_mode[(val & MR1_parity_mode) >> MR1_parity_mode_shift],
                         val & MR1_block_error ? "block" : "char",
-                        val & MR1_RxINT ? "FFULL" : "RxRDY",
+                        val & MR1_RxINT_FFULL ? "FFULL" : "RxRDY",
                         val & MR1_RxRTS ? "yes" : "no");
                 break;
 
@@ -619,7 +744,7 @@ static void channel_command(struct channel *ch, uint8_t val)
                 break;
 
                 case CR_command_reset_error:
-                ch->SR &= ~(SR_receive_break | SR_parity_error | SR_framing_error);
+                ch->SR &= ~(SR_receive_break | SR_parity_error | SR_framing_error | SR_overrun_error);
                 break;
 
                 case CR_command_reset_break_change:
@@ -668,6 +793,20 @@ static void channel_command(struct channel *ch, uint8_t val)
         }
 
         fprintf(stderr, "\n");
+}
+
+static void channel_get_input(struct channel *ch)
+{
+        struct pollfd fds[] = {{.fd = STDIN_FILENO, .events = POLLIN}};
+
+        if (ch->have_input)
+                return;
+
+        if (poll(fds, 1, 0) == -1)
+                return;
+
+        if (read(STDIN_FILENO, &ch->input_char, 1) == 1)
+                ch->have_input = 1;
 }
 
 
@@ -719,15 +858,54 @@ static void receive_data(struct channel *ch)
         if (!ch->receive_enabled)
                 return;
 
-/*
-        uint8_t val = ch->fifo.data[ch->fifo.front];
+        /* Test for available input. */
 
-        if (ch->fifo.front != ch->fifo.back)
-                ch->fifo.front = (ch->fifo.front + 1) % 3;
+        if (!ch->rsr_bits_received)
+        {
+                channel_get_input(ch);
 
-        if (!(ch->mr[MR1] & MR1_block_error))
-                ch->SR &= ~(SR_receive_break | SR_parity_error | SR_framing_error);
-*/
+                if (!ch->have_input)
+                        return;
+        }
+
+        /* Test for an appropriate moment to receive at the configured rate. */
+
+        if (!ch->receive_cycles || (receive_cycles < ch->receive_cycles))
+                return;
+
+        receive_cycles = receive_cycles % ch->receive_cycles;
+
+        /* At the appropriate rate, send any bits in the shift register. */
+
+        if (ch->rsr_bits_received < channel_bpc(ch))
+        {
+                /* Receive each bit from somewhere. */
+
+                ch->rsr |= ch->input_char & (1 << ch->rsr_bits_received);
+
+                /* Test for an occupied shift register. */
+
+                if (ch->rsr_occupied)
+                        ch->SR |= SR_overrun_error;
+
+                ch->rsr_bits_received++;
+
+                /* Test for the end of input. */
+
+                if (ch->rsr_bits_received == channel_bpc(ch))
+                {
+                        /* Empty or non-full FIFO. */
+
+                        if (ch->fifo.empty || (ch->fifo.front != ch->fifo.back))
+                                channel_push_fifo(ch);
+                        else
+                                ch->rsr_occupied = 1;
+
+                        ch->rsr = 0;
+                        ch->rsr_bits_received = 0;
+                        ch->have_input = 0;
+                }
+        }
 }
 
 /* Transmit data.
@@ -773,10 +951,10 @@ static void transmit_data(struct channel *ch)
 
         /* Test for an appropriate moment to send at the configured rate. */
 
-        if (!ch->transmit_cycles || (serial_cycles < ch->transmit_cycles))
+        if (!ch->transmit_cycles || (transmit_cycles < ch->transmit_cycles))
                 return;
 
-        serial_cycles = serial_cycles % ch->transmit_cycles;
+        transmit_cycles = transmit_cycles % ch->transmit_cycles;
 
         /* At the appropriate rate, send any bits in the shift register. */
 
@@ -806,38 +984,6 @@ static void transmit_data(struct channel *ch)
                                 ch->output_char);
                 }
         }
-}
-
-
-
-/* Input port handling. */
-
-static uint8_t get_input_port_change()
-{
-        uint8_t changed = 0;
-        int i;
-
-        /* Use the previous contents of IPCR together with IP06 for IP0..3 to
-           determine the new contents. */
-
-        for (i = 0; i < 4; i++)
-        {
-                if ((sr[IP06] & (1 << i)) != (sr[IPCR] & (1 << i)))
-                        changed |= (1 << i);
-        }
-
-        /* IPCR = delta (IP3..0) | IP3..0 */
-
-        sr[IPCR] = (changed << 4) | (sr[IP06] & 0x0f);
-        return changed;
-}
-
-static uint8_t read_input_port_change()
-{
-        /* Reset the interrupt status flag. */
-
-        sr[ISR] &= ~ISR_IP_change;
-        return sr[IPCR];
 }
 
 
@@ -890,26 +1036,12 @@ static void reset_registers()
 
 /* Exported functions. */
 
-/* Change input port state. */
-
-void serialinput(int enable)
-{
-        if (enable)
-                sr[IP06] |= IP06_IP2;
-        else
-                sr[IP06] &= ~IP06_IP2;
-
-        /* Test for changed state and raise an interrupt if appropriate. */
-
-        if (get_input_port_change())
-                sr[ISR] |= ISR_IP_change;
-}
-
 /* Reset the serial controller's registers. */
 
 void resetserial()
 {
         int i;
+        int flags;
 
         /* Initialise channels. */
 
@@ -928,6 +1060,9 @@ void resetserial()
         channels[0].ISR_delta_break_flag = ISR_delta_break_A;
         channels[1].ISR_delta_break_flag = ISR_delta_break_B;
 
+        channels[0].ISR_RxRDY_FFULL_flag = ISR_RxRDY_FFULL_A;
+        channels[1].ISR_RxRDY_FFULL_flag = ISR_RxRDY_FFULL_B;
+
         channels[0].ISR_TxRDY_flag = ISR_TxRDYA;
         channels[1].ISR_TxRDY_flag = ISR_TxRDYB;
 
@@ -938,7 +1073,16 @@ void resetserial()
 
         reset_registers();
 
-        serial_cycles = 0;
+        /* Reset cycle counters. */
+
+        receive_cycles = 0;
+        transmit_cycles = 0;
+
+        /* Make standard input non-blocking to be able to receive characters
+           concurrently. */
+
+        flags = fcntl(STDIN_FILENO, F_GETFL, 0);
+        fcntl(STDIN_FILENO, F_SETFL, flags | O_NONBLOCK);
 }
 
 /* Read from a serial controller register. */
@@ -1095,7 +1239,8 @@ void pollserial(int cycles)
 {
         int i;
 
-        serial_cycles += cycles;
+        receive_cycles += cycles;
+        transmit_cycles += cycles;
 
         for (i = 0; i < 2; i++)
         {
