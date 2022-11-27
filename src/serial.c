@@ -22,10 +22,24 @@
 #include <stdio.h>
 #include "elk.h"
 
+
+
+/* Socket communication. */
+
 #include <fcntl.h>
+#include <string.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <sys/un.h>
 #include <poll.h>
 
+static int socket_fd;
 
+
+
+/* Debugging control. */
+
+int serial_debug = 0;
 
 /* Serial cycle counters. */
 
@@ -368,7 +382,7 @@ struct channel
 {
         /* Conditions. */
 
-        int cts, rts;
+        int rts;
 
         /* Transmit and receive shift registers. */
 
@@ -451,7 +465,8 @@ static void channel_baud_rate_update(struct channel *ch)
         ch->receive_cycles = 2000000 / channel_baud_rate_receive(ch);
         ch->transmit_cycles = 2000000 / channel_baud_rate_transmit(ch);
 
-        fprintf(stderr, "transmit=%d receive=%d\n", ch->transmit_cycles, ch->receive_cycles);
+        if (serial_debug)
+                fprintf(stderr, "Cycles: transmit=%d receive=%d\n", ch->transmit_cycles, ch->receive_cycles);
 }
 
 static int channel_bpc(struct channel *ch)
@@ -465,7 +480,8 @@ static void channel_rts_clear(struct channel *ch)
 {
         if (ch->rts)
         {
-                fprintf(stderr, "%c: ~RTS\n", channel_id(ch));
+                if (serial_debug)
+                        fprintf(stderr, "%c: ~RTS\n", channel_id(ch));
                 ch->rts = 0;
         }
 }
@@ -474,7 +490,8 @@ static void channel_rts_set(struct channel *ch)
 {
         if (!ch->rts)
         {
-                fprintf(stderr, "%c: RTS\n", channel_id(ch));
+                if (serial_debug)
+                        fprintf(stderr, "%c: RTS\n", channel_id(ch));
                 ch->rts = 1;
         }
 }
@@ -483,10 +500,11 @@ static void channel_clock_select(struct channel *ch, uint8_t val)
 {
         ch->CSR = val;
 
-        fprintf(stderr, "CSR%c: receiver=%s transmitter=%s\n",
-                channel_id(ch),
-                baud_rate_labels[baud_rate_group()][channel_baud_rate_receive_index(ch)],
-                baud_rate_labels[baud_rate_group()][channel_baud_rate_transmit_index(ch)]);
+        if (serial_debug)
+                fprintf(stderr, "CSR%c: receiver=%s transmitter=%s\n",
+                        channel_id(ch),
+                        baud_rate_labels[baud_rate_group()][channel_baud_rate_receive_index(ch)],
+                        baud_rate_labels[baud_rate_group()][channel_baud_rate_transmit_index(ch)]);
 
         channel_baud_rate_update(ch);
 }
@@ -625,7 +643,6 @@ static uint8_t channel_read(struct channel *ch)
 
 static void channel_reset_output(struct channel *ch)
 {
-        ch->cts = 0;
         ch->rts = 0;
 }
 
@@ -679,23 +696,25 @@ static void channel_set_mode(struct channel *ch, uint8_t val)
         switch (ch->mr_index)
         {
                 case MR1:
-                fprintf(stderr, "MR1%c: BPC=%d parity=\"%s\" mode=\"%s\" error=%s RxINT=%s RxRTS=%s\n",
-                        channel_id(ch),
-                        channel_bpc(ch),
-                        val & MR1_parity_type ? "odd" : "even",
-                        parity_mode[(val & MR1_parity_mode) >> MR1_parity_mode_shift],
-                        val & MR1_block_error ? "block" : "char",
-                        val & MR1_RxINT_FFULL ? "FFULL" : "RxRDY",
-                        val & MR1_RxRTS ? "yes" : "no");
+                if (serial_debug)
+                        fprintf(stderr, "MR1%c: BPC=%d parity=\"%s\" mode=\"%s\" error=%s RxINT=%s RxRTS=%s\n",
+                                channel_id(ch),
+                                channel_bpc(ch),
+                                val & MR1_parity_type ? "odd" : "even",
+                                parity_mode[(val & MR1_parity_mode) >> MR1_parity_mode_shift],
+                                val & MR1_block_error ? "block" : "char",
+                                val & MR1_RxINT_FFULL ? "FFULL" : "RxRDY",
+                                val & MR1_RxRTS ? "yes" : "no");
                 break;
 
                 case MR2:
-                fprintf(stderr, "MR2%c: stop=%s TxCTS=%s TxRTS=%s channel=%s\n",
-                        channel_id(ch),
-                        (channel_bpc(ch) == 5 ? stop_bits_5bpc : stop_bits)[val & MR2_stop_bits],
-                        val & MR2_TxCTS ? "yes" : "no",
-                        val & MR2_TxRTS ? "yes" : "no",
-                        channel_mode[(val & MR2_channel) >> MR2_channel_shift]);
+                if (serial_debug)
+                        fprintf(stderr, "MR2%c: stop=%s TxCTS=%s TxRTS=%s channel=%s\n",
+                                channel_id(ch),
+                                (channel_bpc(ch) == 5 ? stop_bits_5bpc : stop_bits)[val & MR2_stop_bits],
+                                val & MR2_TxCTS ? "yes" : "no",
+                                val & MR2_TxRTS ? "yes" : "no",
+                                channel_mode[(val & MR2_channel) >> MR2_channel_shift]);
                 break;
         }
 
@@ -705,7 +724,8 @@ static void channel_set_mode(struct channel *ch, uint8_t val)
 
 static void channel_write(struct channel *ch, uint8_t val)
 {
-        fprintf(stderr, "THR%c: %02x\n", channel_id(ch), val);
+        if (serial_debug)
+                fprintf(stderr, "THR%c: %02x\n", channel_id(ch), val);
 
         if (ch->SR & CR_enable_Tx)
         {
@@ -722,10 +742,13 @@ static void channel_command(struct channel *ch, uint8_t val)
         int Rx_op = val & (CR_enable_Rx | CR_disable_Rx);
         int Tx_op = val & (CR_enable_Tx | CR_disable_Tx);
 
-        fprintf(stderr, "CR%c:", channel_id(ch));
+        if (serial_debug)
+        {
+                fprintf(stderr, "CR%c:", channel_id(ch));
 
-        fprintf(stderr, " command=\"%s\"",
-                commands[(val & CR_command) >> CR_command_shift]);
+                fprintf(stderr, " command=\"%s\"",
+                        commands[(val & CR_command) >> CR_command_shift]);
+        }
 
         switch ((val & CR_command) >> CR_command_shift)
         {
@@ -768,36 +791,41 @@ static void channel_command(struct channel *ch, uint8_t val)
 
         if (!ch->receive_enabled && (val & CR_enable_Rx))
         {
-                fprintf(stderr, " enable Rx=%s",
-                        val & CR_enable_Rx ? "yes" : "no");
+                if (serial_debug)
+                        fprintf(stderr, " enable Rx=%s",
+                                val & CR_enable_Rx ? "yes" : "no");
                 channel_enable_receiver(ch);
         }
         else if (ch->receive_enabled && (val & CR_disable_Rx))
         {
-                fprintf(stderr, " disable Rx=%s",
-                        val & CR_disable_Rx ? "yes" : "no");
+                if (serial_debug)
+                        fprintf(stderr, " disable Rx=%s",
+                                val & CR_disable_Rx ? "yes" : "no");
                 channel_disable_receiver(ch);
         }
 
         if (!ch->transmit_enabled && (val & CR_enable_Tx))
         {
-                fprintf(stderr, " enable Tx=%s",
-                        val & CR_enable_Tx ? "yes" : "no");
+                if (serial_debug)
+                        fprintf(stderr, " enable Tx=%s",
+                                val & CR_enable_Tx ? "yes" : "no");
                 channel_enable_transmitter(ch);
         }
         else if (ch->transmit_enabled && (val & CR_disable_Tx))
         {
-                fprintf(stderr, " disable Tx=%s",
-                        val & CR_disable_Tx ? "yes" : "no");
+                if (serial_debug)
+                        fprintf(stderr, " disable Tx=%s",
+                                val & CR_disable_Tx ? "yes" : "no");
                 channel_disable_transmitter(ch);
         }
 
-        fprintf(stderr, "\n");
+        if (serial_debug)
+                fprintf(stderr, "\n");
 }
 
 static void channel_get_input(struct channel *ch)
 {
-        struct pollfd fds[] = {{.fd = STDIN_FILENO, .events = POLLIN}};
+        struct pollfd fds[] = {{.fd = socket_fd, .events = POLLIN}};
 
         if (ch->have_input)
                 return;
@@ -805,8 +833,13 @@ static void channel_get_input(struct channel *ch)
         if (poll(fds, 1, 0) == -1)
                 return;
 
-        if (read(STDIN_FILENO, &ch->input_char, 1) == 1)
+        if (read(socket_fd, &ch->input_char, 1) == 1)
                 ch->have_input = 1;
+}
+
+static void channel_set_output(struct channel *ch)
+{
+        write(socket_fd, &ch->output_char, 1);
 }
 
 
@@ -976,12 +1009,9 @@ static void transmit_data(struct channel *ch)
                         if (!ch->THR_set)
                                 ch->SR |= SR_TxEMT;
 
-                        /* NOTE: This might be written to some kind of file
-                                 descriptor for external use. */
+                        /* Write to the communications socket. */
 
-                        fprintf(stderr, "OUT %c: %02x\n",
-                                channel_id(ch),
-                                ch->output_char);
+                        channel_set_output(ch);
                 }
         }
 }
@@ -1034,6 +1064,48 @@ static void reset_registers()
 
 
 
+/* Open a socket for data exchange. */
+
+extern char serialname[512];
+
+static void open_socket()
+{
+        struct sockaddr_un addr;
+        int flags;
+
+        if (!strlen(serialname))
+                return;
+
+        socket_fd = socket(AF_UNIX, SOCK_STREAM, PF_UNIX);
+
+        if (socket_fd == -1)
+        {
+                perror("Failed to open serial communications socket");
+                return;
+        }
+
+        /* Make the socket non-blocking to be able to receive characters
+           concurrently. */
+
+        flags = fcntl(socket_fd, F_GETFL, 0);
+        fcntl(socket_fd, F_SETFL, flags | O_NONBLOCK);
+
+        /* Connect to a named UNIX address. */
+
+        memset(&addr, 0, sizeof(struct sockaddr_un));
+        addr.sun_family = AF_UNIX;
+        strncpy(addr.sun_path, serialname, sizeof(addr.sun_path) - 1);
+
+        if (connect(socket_fd, (const struct sockaddr *) &addr,
+                    sizeof(struct sockaddr_un)) == -1)
+        {
+                perror("Failed to connect to serial communications socket");
+                return;
+        }
+}
+
+
+
 /* Exported functions. */
 
 /* Reset the serial controller's registers. */
@@ -1041,7 +1113,6 @@ static void reset_registers()
 void resetserial()
 {
         int i;
-        int flags;
 
         /* Initialise channels. */
 
@@ -1078,11 +1149,9 @@ void resetserial()
         receive_cycles = 0;
         transmit_cycles = 0;
 
-        /* Make standard input non-blocking to be able to receive characters
-           concurrently. */
+        /* Open a socket and attempt to establish a serial connection. */
 
-        flags = fcntl(STDIN_FILENO, F_GETFL, 0);
-        fcntl(STDIN_FILENO, F_SETFL, flags | O_NONBLOCK);
+        open_socket();
 }
 
 /* Read from a serial controller register. */
@@ -1091,7 +1160,8 @@ uint8_t readserial(uint16_t addr)
 {
         uint8_t val = 0;
 
-        //fprintf(stderr, "read 0x%04x (%s) ->", addr, sr_read_names[addr - FC_BASE]);
+        if (serial_debug > 1)
+                fprintf(stderr, "read 0x%04x (%s) ->", addr, sr_read_names[addr - FC_BASE]);
 
         switch (addr)
         {
@@ -1137,7 +1207,8 @@ uint8_t readserial(uint16_t addr)
                 default: break;
         }
 
-        //fprintf(stderr, " %02x\n", val);
+        if (serial_debug > 1)
+                fprintf(stderr, " %02x\n", val);
         return val;
 }
 
@@ -1164,30 +1235,32 @@ void writeserial(uint16_t addr, uint8_t val)
                 break;
 
                 case FC_ACR:
-                fprintf(stderr, "ACR: set=%d counter/timer=%d "
-                                "delta IP3 int=%s delta IP2 int=%s "
-                                "delta IP1 int=%s delta IP0 int=%s\n",
-                        ((val & ACR_BRG) >> ACR_BRG_shift) + 1,
-                        (val & ACR_CTMS) >> ACR_CTMS_shift,
-                        val & ACR_delta_IP3 ? "on" : "off",
-                        val & ACR_delta_IP2 ? "on" : "off",
-                        val & ACR_delta_IP1 ? "on" : "off",
-                        val & ACR_delta_IP0 ? "on" : "off");
+                if (serial_debug)
+                        fprintf(stderr, "ACR: set=%d counter/timer=%d "
+                                        "delta IP3 int=%s delta IP2 int=%s "
+                                        "delta IP1 int=%s delta IP0 int=%s\n",
+                                ((val & ACR_BRG) >> ACR_BRG_shift) + 1,
+                                (val & ACR_CTMS) >> ACR_CTMS_shift,
+                                val & ACR_delta_IP3 ? "on" : "off",
+                                val & ACR_delta_IP2 ? "on" : "off",
+                                val & ACR_delta_IP1 ? "on" : "off",
+                                val & ACR_delta_IP0 ? "on" : "off");
                 sr[ACR] = val;
                 break;
 
                 case FC_IMR:
-                fprintf(stderr, "IMR: IP change=%s delta break B=%s "
-                                "RxRDY/FFULL B=%s TxRDYB=%s counter ready=%s "
-                                "delta break A=%s RxRDY/FFULL A=%s TxRDYA=%s\n",
-                        val & IMR_IP_change ? "on" : "off",
-                        val & IMR_delta_break_B ? "on" : "off",
-                        val & IMR_RxRDY_FFULL_B ? "on" : "off",
-                        val & IMR_TxRDYB ? "on" : "off",
-                        val & IMR_counter_ready ? "on" : "off",
-                        val & IMR_delta_break_A ? "on" : "off",
-                        val & IMR_RxRDY_FFULL_A ? "on" : "off",
-                        val & IMR_TxRDYA ? "on" : "off");
+                if (serial_debug)
+                        fprintf(stderr, "IMR: IP change=%s delta break B=%s "
+                                        "RxRDY/FFULL B=%s TxRDYB=%s counter ready=%s "
+                                        "delta break A=%s RxRDY/FFULL A=%s TxRDYA=%s\n",
+                                val & IMR_IP_change ? "on" : "off",
+                                val & IMR_delta_break_B ? "on" : "off",
+                                val & IMR_RxRDY_FFULL_B ? "on" : "off",
+                                val & IMR_TxRDYB ? "on" : "off",
+                                val & IMR_counter_ready ? "on" : "off",
+                                val & IMR_delta_break_A ? "on" : "off",
+                                val & IMR_RxRDY_FFULL_A ? "on" : "off",
+                                val & IMR_TxRDYA ? "on" : "off");
                 sr[IMR] = val;
                 break;
 
@@ -1208,13 +1281,14 @@ void writeserial(uint16_t addr, uint8_t val)
                 break;
 
                 case FC_OPCR:
-                fprintf(stderr, "OPCR: OP7=%s OP6=%s OP5=%s OP4=%s OP3=%s OP2=%s\n",
-                        val & OPCR_TxRDYB ? "TxRDYB" : "OPR[7]",
-                        val & OPCR_TxRDYA ? "TxRDYA" : "OPR[6]",
-                        val & OPCR_RxRDY_FFULL_B ? "RxRDY/FFULL B" : "OPR[5]",
-                        val & OPCR_RxRDY_FFULL_A ? "RxRDY/FFULL A" : "OPR[4]",
-                        opcr_op3[(val & OPCR_OP3) >> OPCR_OP3_shift],
-                        opcr_op2[val & OPCR_OP2]);
+                if (serial_debug)
+                        fprintf(stderr, "OPCR: OP7=%s OP6=%s OP5=%s OP4=%s OP3=%s OP2=%s\n",
+                                val & OPCR_TxRDYB ? "TxRDYB" : "OPR[7]",
+                                val & OPCR_TxRDYA ? "TxRDYA" : "OPR[6]",
+                                val & OPCR_RxRDY_FFULL_B ? "RxRDY/FFULL B" : "OPR[5]",
+                                val & OPCR_RxRDY_FFULL_A ? "RxRDY/FFULL A" : "OPR[4]",
+                                opcr_op3[(val & OPCR_OP3) >> OPCR_OP3_shift],
+                                opcr_op2[val & OPCR_OP2]);
                 sr[OPCR] = val;
                 break;
 
@@ -1227,7 +1301,8 @@ void writeserial(uint16_t addr, uint8_t val)
                 break;
 
                 default:
-                fprintf(stderr, "write 0x%04x (%s) <- %02x\n", addr, sr_write_names[addr - FC_BASE], val);
+                if (serial_debug > 1)
+                        fprintf(stderr, "write 0x%04x (%s) <- %02x\n", addr, sr_write_names[addr - FC_BASE], val);
                 break;
         }
 }
