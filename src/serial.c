@@ -891,52 +891,59 @@ static void receive_data(struct channel *ch)
         if (!ch->receive_enabled)
                 return;
 
-        /* Test for available input. */
+        /* Test for an appropriate moment to receive at the configured rate.
+           ignoring unsupported rate settings. */
 
-        if (!ch->rsr_bits_received)
-        {
-                channel_get_input(ch);
-
-                if (!ch->have_input)
-                        return;
-        }
-
-        /* Test for an appropriate moment to receive at the configured rate. */
-
-        if (!ch->receive_cycles || (receive_cycles < ch->receive_cycles))
+        if (!ch->receive_cycles)
                 return;
 
-        receive_cycles = receive_cycles % ch->receive_cycles;
+        /* Catch up with reception at the configured rate, potentially receiving
+           many characters. */
 
-        /* At the appropriate rate, send any bits in the shift register. */
-
-        if (ch->rsr_bits_received < channel_bpc(ch))
+        while (receive_cycles >= ch->receive_cycles)
         {
-                /* Receive each bit from somewhere. */
+                receive_cycles -= ch->receive_cycles;
 
-                ch->rsr |= ch->input_char & (1 << ch->rsr_bits_received);
+                /* Test for available input. */
 
-                /* Test for an occupied shift register. */
-
-                if (ch->rsr_occupied)
-                        ch->SR |= SR_overrun_error;
-
-                ch->rsr_bits_received++;
-
-                /* Test for the end of input. */
-
-                if (ch->rsr_bits_received == channel_bpc(ch))
+                if (!ch->rsr_bits_received)
                 {
-                        /* Empty or non-full FIFO. */
+                        channel_get_input(ch);
 
-                        if (ch->fifo.empty || (ch->fifo.front != ch->fifo.back))
-                                channel_push_fifo(ch);
-                        else
-                                ch->rsr_occupied = 1;
+                        if (!ch->have_input)
+                                continue;
+                }
 
-                        ch->rsr = 0;
-                        ch->rsr_bits_received = 0;
-                        ch->have_input = 0;
+                /* At the appropriate rate, send any bits in the shift register. */
+
+                if (ch->rsr_bits_received < channel_bpc(ch))
+                {
+                        /* Receive each bit from somewhere. */
+
+                        ch->rsr |= ch->input_char & (1 << ch->rsr_bits_received);
+
+                        /* Test for an occupied shift register. */
+
+                        if (ch->rsr_occupied)
+                                ch->SR |= SR_overrun_error;
+
+                        ch->rsr_bits_received++;
+
+                        /* Test for the end of input. */
+
+                        if (ch->rsr_bits_received == channel_bpc(ch))
+                        {
+                                /* Empty or non-full FIFO. */
+
+                                if (ch->fifo.empty || (ch->fifo.front != ch->fifo.back))
+                                        channel_push_fifo(ch);
+                                else
+                                        ch->rsr_occupied = 1;
+
+                                ch->rsr = 0;
+                                ch->rsr_bits_received = 0;
+                                ch->have_input = 0;
+                        }
                 }
         }
 }
@@ -966,52 +973,59 @@ static void transmit_data(struct channel *ch)
         if (!ch->transmit_enabled && !ch->tsr_bits_remaining)
                 return;
 
-        /* Attempt to send a new character. */
+        /* Test for an appropriate moment to send at the configured rate,
+           ignoring unsupported rate settings. */
 
-        if (!(ch->SR & SR_TxEMT) && (!ch->tsr_bits_remaining))
-        {
-                ch->tsr = ch->THR;
-                ch->tsr_bits_remaining = channel_bpc(ch);
-                ch->THR_set = 0;
-                channel_transmit_ready(ch);
-                ch->output_char = 0;
-        }
-
-        /* Prevent transmission if controlled by CTSxN. */
-
-        if ((ch->mr[MR2] & MR2_TxCTS) && !(sr[IP06] & ch->IP06_CTS_flag))
+        if (!ch->transmit_cycles)
                 return;
 
-        /* Test for an appropriate moment to send at the configured rate. */
+        /* Catch up with transmission at the configured rate, potentially
+           sending many characters. */
 
-        if (!ch->transmit_cycles || (transmit_cycles < ch->transmit_cycles))
-                return;
-
-        transmit_cycles = transmit_cycles % ch->transmit_cycles;
-
-        /* At the appropriate rate, send any bits in the shift register. */
-
-        if (ch->tsr_bits_remaining)
+        while (transmit_cycles >= ch->transmit_cycles)
         {
-                ch->tsr_bits_remaining--;
+                transmit_cycles -= ch->transmit_cycles;
 
-                /* Send each bit somewhere. */
+                /* Attempt to send a new character. */
 
-                ch->output_char |= ch->tsr & (1 << ch->tsr_bits_remaining);
-
-                /* Test for the end of output. */
-
-                if (!ch->tsr_bits_remaining)
+                if (!(ch->SR & SR_TxEMT) && (!ch->tsr_bits_remaining))
                 {
-                        /* Set the empty condition if the holding register was
-                           not set. */
+                        ch->tsr = ch->THR;
+                        ch->tsr_bits_remaining = channel_bpc(ch);
+                        ch->THR_set = 0;
+                        channel_transmit_ready(ch);
+                        ch->output_char = 0;
+                }
 
-                        if (!ch->THR_set)
-                                ch->SR |= SR_TxEMT;
+                /* Prevent transmission if controlled by CTSxN. */
 
-                        /* Write to the communications socket. */
+                if ((ch->mr[MR2] & MR2_TxCTS) && !(sr[IP06] & ch->IP06_CTS_flag))
+                        continue;
 
-                        channel_set_output(ch);
+                /* At the appropriate rate, send any bits in the shift register. */
+
+                if (ch->tsr_bits_remaining)
+                {
+                        ch->tsr_bits_remaining--;
+
+                        /* Send each bit somewhere. */
+
+                        ch->output_char |= ch->tsr & (1 << ch->tsr_bits_remaining);
+
+                        /* Test for the end of output. */
+
+                        if (!ch->tsr_bits_remaining)
+                        {
+                                /* Set the empty condition if the holding register was
+                                   not set. */
+
+                                if (!ch->THR_set)
+                                        ch->SR |= SR_TxEMT;
+
+                                /* Write to the communications socket. */
+
+                                channel_set_output(ch);
+                        }
                 }
         }
 }
