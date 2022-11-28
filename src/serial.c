@@ -78,7 +78,7 @@ enum sr_fc_address
 
 /* Serial register storage. */
 
-static uint8_t sr[16];
+static uint8_t sr[10];
 
 /* Serial register locations for registers requiring storage. */
 
