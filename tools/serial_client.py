@@ -22,7 +22,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 from os import read, remove, O_NONBLOCK
 from os.path import exists, isfile
 from socket import socket, AF_UNIX, SOCK_STREAM
-import select
+import select, tempfile
 import sys
 
 # Conveniences.
@@ -68,7 +68,12 @@ def main():
 
     # Obtain the communications socket filename and remove any previous socket file.
 
-    filename = sys.argv[1]
+    try:
+        filename = sys.argv[1]
+        temporary_file = False
+    except IndexError:
+        filename = tempfile.mktemp()
+        temporary_file = True
 
     if exists(filename) and not isfile(filename):
         remove(filename)
@@ -81,7 +86,7 @@ def main():
 
     # Accept a connection.
 
-    print >>sys.stderr, "Waiting..."
+    print >>sys.stderr, "Waiting for connection at:", filename
 
     c, addr = s.accept()
 
@@ -108,7 +113,14 @@ def main():
 
     # Initiate a session.
 
-    session(poller, channels)
+    try:
+        session(poller, channels)
+
+    # Remove any temporary file.
+
+    finally:
+        if temporary_file:
+            remove(filename)
 
 # Main program.
 
