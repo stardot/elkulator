@@ -212,6 +212,11 @@ void runelk();
 
 void redefinekeys();
 
+int break_pressed();
+int menu_pressed();
+void update_break_keys();
+void update_menu_keys();
+
 void loadconfig();
 void saveconfig();
 

@@ -53,7 +53,7 @@ int getkey(HWND parent)
                 }
         }
 
-	if (khwnd) SendMessage(khwnd,WM_CLOSE,0,0);
+        if (khwnd) SendMessage(khwnd,WM_CLOSE,0,0);
 
         /* The class is registered, let's create the window*/
         khwnd = CreateWindowEx (
@@ -215,8 +215,8 @@ LRESULT CALLBACK KeyWindowProcedure (HWND hwnd, UINT message, WPARAM wParam, LPA
                 hwndCtrl = CreateWindow( "STATIC", s, WS_CHILD | SS_SIMPLE | WS_VISIBLE, 4, 36, 240-10, 16, hwnd, NULL, ghinstance, NULL );
                 break;
 
-        	case WM_SYSKEYUP:
-        	case WM_KEYUP:
+                case WM_SYSKEYUP:
+                case WM_KEYUP:
                 if (LOWORD(wParam)!=255)
                 {
                         rpclog("Key %04X\n",LOWORD(wParam));
@@ -282,4 +282,26 @@ void redefinekeys()
 {
         DialogBox(ghinstance,TEXT("Redefine"),ghwnd,redefinedlgproc);
 }
+
+/* Currently, just use F11 and F12 for menu and Break on Windows, as is
+   traditional in Elkulator. */
+
+void update_break_keys()
+{
+}
+
+void update_menu_keys()
+{
+}
+
+int break_pressed()
+{
+        return key[KEY_F12];
+}
+
+int menu_pressed()
+{
+        return key[KEY_F11];
+}
+
 #endif

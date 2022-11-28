@@ -246,7 +246,7 @@ int keys[2][14][4]=
                 {KEY_3,KEY_E,KEY_D,KEY_C},
                 {KEY_2,KEY_W,KEY_S,KEY_X},
                 {KEY_1,KEY_Q,KEY_A,KEY_Z},
-                {KEY_ESC,KEY_TILDE,KEY_RCONTROL,KEY_RSHIFT}
+                {KEY_ESC,KEY_TAB,KEY_RCONTROL,KEY_RSHIFT}
         }
 };
 
@@ -256,6 +256,9 @@ void makekeyl()
 {
         int c,d,e;
         memset(keyl,0,sizeof(keyl));
+
+        /* Establish a mapping from emulated key presses to keyboard matrix values. */
+
         for (c=0;c<14;c++)
         {
                 for (d=0;d<4;d++)
@@ -266,6 +269,11 @@ void makekeyl()
                         }
                 }
         }
+
+        /* Record the Break keys separately, along with configurable menu keys. */
+
+        update_break_keys();
+        update_menu_keys();
 }
 
 uint8_t readkeys(uint16_t addr)

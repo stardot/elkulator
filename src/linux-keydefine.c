@@ -3,14 +3,61 @@
 
 #ifndef WIN32
 #include <allegro.h>
-#include <string.h>
 #include "elk.h"
 
 int keytemp[128];
 
+/* Convert widget positions to or from screen positions. */
+
+static void move_widgets(DIALOG *d, int show)
+{
+        int x = 0, adjustment;
+
+        for (x = 0; d[x].proc; x++)
+        {
+                adjustment = (SCREEN_W/2) - (d[0].w/2);
+                adjustment = show ? adjustment : -adjustment;
+                d[x].x += adjustment;
+
+                adjustment = (SCREEN_H/2) - (d[0].h/2);
+                adjustment = show ? adjustment : -adjustment;
+                d[x].y += adjustment;
+        }
+}
+
+static BITMAP *open_dialog(DIALOG *d)
+{
+        BITMAP *b;
+        int x, y;
+
+        move_widgets(d, 1);
+        x = (SCREEN_W/2) - (d[0].w/2);
+        y = (SCREEN_H/2) - (d[0].h/2);
+        b=create_bitmap(d[0].w, d[0].h);
+        blit(screen, b, x, y, 0, 0, d[0].w, d[0].h);
+
+        return b;
+}
+
+static void close_dialog(DIALOG *d, BITMAP *b)
+{
+        int x, y;
+
+        x = (SCREEN_W/2) - (d[0].w/2);
+        y = (SCREEN_H/2) - (d[0].h/2);
+        blit(b, screen, 0, 0, x, y, d[0].w, d[0].h);
+        move_widgets(d, 0);
+        destroy_bitmap(b);
+}
+
+/* Constant colours. */
+
+static const int FG = 0xffffff;
+static const int BG = 0x000000;
+
 char *key_names[] =
 {
-   "",         "A",          "B",          "C",
+   "",           "A",          "B",          "C",
    "D",          "E",          "F",          "G",
    "H",          "I",          "J",          "K",
    "L",          "M",          "N",          "O",
@@ -44,183 +91,418 @@ char *key_names[] =
    "SCRLOCK",    "NUMLOCK",    "CAPSLOCK",   "MAX"
 };
 
-int d_getkey(int msg, DIALOG *d, int cd)
-{
-        BITMAP *b;
-        int x,y;
-        int ret = d_button_proc(msg, d, cd);
-        int k,k2;
-        int c;
-        char s[1024],s2[1024],s3[64];
-        if (ret==D_EXIT)
-        {
-                k=(int)d->dp2;
-                x=(SCREEN_W/2)-100;
-                y=(SCREEN_H/2)-36;
-                b=create_bitmap(200,72);
-                blit(screen,b,x,y,0,0,200,72);
-                rectfill(screen,x,y,x+199,y+71,makecol(0,0,0));
-                rect(screen,x,y,x+199,y+71,makecol(255,255,255));
-                if (d->dp3) textprintf_ex(screen,font,x+8,y+8,makecol(255,255,255),0,"Redefining %s",(char *)d->dp3);
-                else        textprintf_ex(screen,font,x+8,y+8,makecol(255,255,255),0,"Redefining %s",(char *)d->dp);
-                textprintf_ex(screen,font,x+8,y+24,makecol(255,255,255),0,"Assigned to PC key(s) :");
+/* Key reading control. */
 
-                s[0]=0;
-                for (c=0;c<128;c++)
+#define MAX_KEYS 5
+
+static int key_to_define;
+static int current_keys[MAX_KEYS];
+static char keysel[MAX_KEYS];
+static int break_keys[MAX_KEYS];
+static int menu_keys[MAX_KEYS];
+
+static void populate_current_keys()
+{
+        int i, count;
+
+        /* Clear current keys. */
+
+        for (i = 0; i < MAX_KEYS; i++)
+                current_keys[i] = -1;
+
+        /* Populate with registered keys. */
+
+        for (i = 0, count = 0; (i < 128) && (count < MAX_KEYS); i++)
+        {
+                if (keytemp[i] == key_to_define)
                 {
-                        if (keylookup[c]==k)
+                        current_keys[count] = i;
+                        count++;
+                }
+        }
+}
+
+static void update_defined_keys()
+{
+        int i;
+
+        /* Reset to defaults. */
+
+        for (i = 0; i < 128; i++)
+                if (keytemp[i] == key_to_define)
+                        keytemp[i] = -1;
+
+        /* Apply changes. */
+
+        for (i = 0; (i < MAX_KEYS) && (current_keys[i] != -1); i++)
+                keytemp[current_keys[i]] = key_to_define;
+}
+
+static char *get_current_keys(int index, int *list_size)
+{
+        int i;
+
+        /* Return the number of defined keys. */
+
+        if (index < 0)
+        {
+                for (i = 0; i < MAX_KEYS; i++)
+                        if (current_keys[i] == -1)
+                                break;
+
+                *list_size = i;
+                return NULL;
+        }
+
+        /* Otherwise, return the name of the indicated key. */
+
+        else
+                return key_names[current_keys[index]];
+}
+
+static int d_assign_key(int msg, DIALOG *d, int c)
+{
+        int ret = d_button_proc(msg, d, c);
+        int i, code, assigned = 0, have_code;
+
+        if (ret == D_EXIT)
+        {
+                do
+                {
+                        if (keyboard_needs_poll())
+                                poll_keyboard();
+
+                        /* Manually scan the keys to obtain the one being
+                           pressed. This includes modifier keys that cannot be
+                           easily detected otherwise. */
+
+                        have_code = 0;
+
+                        for (code = 0; code < 128; code++)
                         {
-                                if (s[0]) sprintf(s3,", %s",key_names[c]);
-                                else      sprintf(s3,"%s",key_names[c]);
-                                sprintf(s2,"%s%s",s,s3);
-                                strcpy(s,s2);
+                                if (key[code])
+                                {
+                                        have_code = 1;
+
+                                        if (assigned)
+                                                break;
+
+                                        /* Find a slot to record the key. */
+
+                                        for (i = 0; (i < MAX_KEYS) &&
+                                                    (current_keys[i] != -1) &&
+                                                    (current_keys[i] != code); i++);
+
+                                        /* Record any new key and update the
+                                           display. */
+
+                                        if ((i < MAX_KEYS) && (current_keys[i] != code))
+                                        {
+                                                current_keys[i] = code;
+
+                                                if (d->dp2 != NULL)
+                                                        object_message(d->dp2, MSG_DRAW, 0);
+                                        }
+
+                                        assigned = 1;
+                                }
+                        }
+
+                        /* Exit only when no more keys are being pressed, also
+                           clearing any keypresses which seems to be necessary
+                           to deal with Escape. */
+
+                        if (assigned && !have_code)
+                        {
+                                while (keypressed()) readkey();
+
+                                return D_O_K;
                         }
                 }
-
-                textprintf_ex(screen,font,x+8,y+40,makecol(255,255,255),0,s);
-                
-                textprintf_ex(screen,font,x+8,y+56,makecol(255,255,255),0,"Please press new key...");
-getnewkey:
-                while (!keypressed());
-                k2=readkey()>>8;
-                if (k2==KEY_F11 || k2==KEY_F12) goto getnewkey;
-                keylookup[k2]=k;
-                
-                blit(b,screen,0,0,x,y,200,72);
-                destroy_bitmap(b);
-                while (key[KEY_SPACE]);
-                while (keypressed()) readkey();
-                return 0;
+                while (1);
         }
+
         return ret;
 }
 
-DIALOG bemdefinegui[]=
+static int d_remove_key(int msg, DIALOG *d, int c)
 {
-        {d_box_proc, 0, 0, 538,  256, 15,15,0,0,     0,0,0, NULL,NULL},
+        int ret = d_button_proc(msg, d, c);
+        int size, i, j;
 
-        {d_button_proc, 205,218,60,28, 15,15,0,D_CLOSE, 0,0,"OK", NULL,NULL},
-        {d_button_proc, 271,218,60,28, 15,15,0,D_CLOSE, 0,0,"Cancel", NULL,NULL},
+        get_current_keys(-1, &size);
 
-        {d_getkey, 82,10,28,28, 15,15,0,D_EXIT, 0,0,"F0", (void *)KEY_F1,NULL},
-        {d_getkey, 114,10,28,28, 15,15,0,D_EXIT, 0,0,"F1", (void *)KEY_F2,NULL},
-        {d_getkey, 146,10,28,28, 15,15,0,D_EXIT, 0,0,"F2", (void *)KEY_F3,NULL},
-        {d_getkey, 178,10,28,28, 15,15,0,D_EXIT, 0,0,"F3", (void *)KEY_F4,NULL},
-        {d_getkey, 210,10,28,28, 15,15,0,D_EXIT, 0,0,"F4", (void *)KEY_F5,NULL},
-        {d_getkey, 242,10,28,28, 15,15,0,D_EXIT, 0,0,"F5", (void *)KEY_F6,NULL},
-        {d_getkey, 274,10,28,28, 15,15,0,D_EXIT, 0,0,"F6", (void *)KEY_F7,NULL},
-        {d_getkey, 306,10,28,28, 15,15,0,D_EXIT, 0,0,"F7", (void *)KEY_F8,NULL},
-        {d_getkey, 338,10,28,28, 15,15,0,D_EXIT, 0,0,"F8", (void *)KEY_F9,NULL},
-        {d_getkey, 370,10,28,28, 15,15,0,D_EXIT, 0,0,"F9", (void *)KEY_F10,NULL},
-        {d_getkey, 10,42,28,28, 15,15,0,D_EXIT, 0,0,"ESC", (void *)KEY_ESC,NULL},
-        {d_getkey, 42,42,28,28, 15,15,0,D_EXIT, 0,0,"1", (void *)KEY_1,NULL},
-        {d_getkey, 74,42,28,28, 15,15,0,D_EXIT, 0,0,"2", (void *)KEY_2,NULL},
-        {d_getkey, 106,42,28,28, 15,15,0,D_EXIT, 0,0,"3", (void *)KEY_3,NULL},
-        {d_getkey, 138,42,28,28, 15,15,0,D_EXIT, 0,0,"4", (void *)KEY_4,NULL},
-        {d_getkey, 170,42,28,28, 15,15,0,D_EXIT, 0,0,"5", (void *)KEY_5,NULL},
-        {d_getkey, 202,42,28,28, 15,15,0,D_EXIT, 0,0,"6", (void *)KEY_6,NULL},
-        {d_getkey, 234,42,28,28, 15,15,0,D_EXIT, 0,0,"7", (void *)KEY_7,NULL},
-        {d_getkey, 266,42,28,28, 15,15,0,D_EXIT, 0,0,"8", (void *)KEY_8,NULL},
-        {d_getkey, 298,42,28,28, 15,15,0,D_EXIT, 0,0,"9", (void *)KEY_9,NULL},
-        {d_getkey, 330,42,28,28, 15,15,0,D_EXIT, 0,0,"0", (void *)KEY_0,NULL},
-        {d_getkey, 362,42,28,28, 15,15,0,D_EXIT, 0,0,"=", (void *)KEY_MINUS,NULL},
-        {d_getkey, 394,42,28,28, 15,15,0,D_EXIT, 0,0,"^", (void *)KEY_EQUALS,NULL},
-        {d_getkey, 426,42,28,28, 15,15,0,D_EXIT, 0,0,"\\", (void *)KEY_BACKSLASH2,NULL},
-        {d_getkey, 458,42,28,28, 15,15,0,D_EXIT, 0,0,"LFT", (void *)KEY_LEFT,"LEFT"},//25
-        {d_getkey, 490,42,28,28, 15,15,0,D_EXIT, 0,0,"RGT", (void *)KEY_RIGHT,"RIGHT"},//26
-        {d_getkey, 10,74,44,28, 15,15,0,D_EXIT, 0,0,"TAB", (void *)KEY_TAB,NULL},
-        {d_getkey, 58,74,28,28, 15,15,0,D_EXIT, 0,0,"Q", (void *)KEY_Q,NULL},
-        {d_getkey, 90,74,28,28, 15,15,0,D_EXIT, 0,0,"W", (void *)KEY_W,NULL},
-        {d_getkey, 122,74,28,28, 15,15,0,D_EXIT, 0,0,"E", (void *)KEY_E,NULL},
-        {d_getkey, 154,74,28,28, 15,15,0,D_EXIT, 0,0,"R", (void *)KEY_R,NULL},
-        {d_getkey, 186,74,28,28, 15,15,0,D_EXIT, 0,0,"T", (void *)KEY_T,NULL},
-        {d_getkey, 218,74,28,28, 15,15,0,D_EXIT, 0,0,"Y", (void *)KEY_Y,NULL},
-        {d_getkey, 250,74,28,28, 15,15,0,D_EXIT, 0,0,"U", (void *)KEY_U,NULL},
-        {d_getkey, 282,74,28,28, 15,15,0,D_EXIT, 0,0,"I", (void *)KEY_I,NULL},
-        {d_getkey, 314,74,28,28, 15,15,0,D_EXIT, 0,0,"O", (void *)KEY_O,NULL},
-        {d_getkey, 346,74,28,28, 15,15,0,D_EXIT, 0,0,"P", (void *)KEY_P,NULL},
-        {d_getkey, 378,74,28,28, 15,15,0,D_EXIT, 0,0,"@", (void *)KEY_OPENBRACE,NULL},
-        {d_getkey, 410,74,28,28, 15,15,0,D_EXIT, 0,0,"[", (void *)KEY_CLOSEBRACE,NULL},
-        {d_getkey, 442,74,28,28, 15,15,0,D_EXIT, 0,0,"_", (void *)KEY_TILDE,NULL},
-        {d_getkey, 474,74,28,28, 15,15,0,D_EXIT, 0,0,"UP", (void *)KEY_UP,NULL},//41
-        {d_getkey, 506,74,28,28, 15,15,0,D_EXIT, 0,0,"DWN", (void *)KEY_DOWN,"DOWN"},//42
-        {d_getkey, 10,106,28,28, 15,15,0,D_EXIT, 0,0,"CLK", (void *)KEY_CAPSLOCK,"CAPS LOCK"},
-        {d_getkey, 42,106,28,28, 15,15,0,D_EXIT, 0,0,"CTL", (void *)KEY_LCONTROL,"CTRL"},
-        {d_getkey, 74,106,28,28, 15,15,0,D_EXIT, 0,0,"A", (void *)KEY_A,NULL},
-        {d_getkey, 106,106,28,28, 15,15,0,D_EXIT, 0,0,"S", (void *)KEY_S,NULL},
-        {d_getkey, 138,106,28,28, 15,15,0,D_EXIT, 0,0,"D", (void *)KEY_D,NULL},
-        {d_getkey, 170,106,28,28, 15,15,0,D_EXIT, 0,0,"F", (void *)KEY_F,NULL},
-        {d_getkey, 202,106,28,28, 15,15,0,D_EXIT, 0,0,"G", (void *)KEY_G,NULL},
-        {d_getkey, 234,106,28,28, 15,15,0,D_EXIT, 0,0,"H", (void *)KEY_H,NULL},
-        {d_getkey, 266,106,28,28, 15,15,0,D_EXIT, 0,0,"J", (void *)KEY_J,NULL},
-        {d_getkey, 298,106,28,28, 15,15,0,D_EXIT, 0,0,"K", (void *)KEY_K,NULL},
-        {d_getkey, 330,106,28,28, 15,15,0,D_EXIT, 0,0,"L", (void *)KEY_L,NULL},
-        {d_getkey, 362,106,28,28, 15,15,0,D_EXIT, 0,0,";", (void *)KEY_SEMICOLON,NULL},
-        {d_getkey, 394,106,28,28, 15,15,0,D_EXIT, 0,0,":", (void *)KEY_QUOTE,NULL},
-        {d_getkey, 426,106,28,28, 15,15,0,D_EXIT, 0,0,"]", (void *)KEY_BACKSLASH,NULL},
-        {d_getkey, 458,106,60,28, 15,15,0,D_EXIT, 0,0,"RET", (void *)KEY_ENTER,"RETURN"},
-        {d_getkey, 10,138,28,28, 15,15,0,D_EXIT, 0,0,"SLK", (void *)KEY_ALT,"SHIFT LOCK"},
-        {d_getkey, 42,138,44,28, 15,15,0,D_EXIT, 0,0,"SHIFT", (void *)KEY_LSHIFT,NULL},
-        {d_getkey, 90,138,28,28, 15,15,0,D_EXIT, 0,0,"Z", (void *)KEY_Z,NULL},
-        {d_getkey, 122,138,28,28, 15,15,0,D_EXIT, 0,0,"X", (void *)KEY_X,NULL},
-        {d_getkey, 154,138,28,28, 15,15,0,D_EXIT, 0,0,"C", (void *)KEY_C,NULL},
-        {d_getkey, 186,138,28,28, 15,15,0,D_EXIT, 0,0,"V", (void *)KEY_V,NULL},
-        {d_getkey, 218,138,28,28, 15,15,0,D_EXIT, 0,0,"B", (void *)KEY_B,NULL},
-        {d_getkey, 250,138,28,28, 15,15,0,D_EXIT, 0,0,"N", (void *)KEY_N,NULL},
-        {d_getkey, 282,138,28,28, 15,15,0,D_EXIT, 0,0,"M", (void *)KEY_M,NULL},
-        {d_getkey, 314,138,28,28, 15,15,0,D_EXIT, 0,0,",", (void *)KEY_COMMA,NULL},
-        {d_getkey, 346,138,28,28, 15,15,0,D_EXIT, 0,0,".", (void *)KEY_STOP,NULL},
-        {d_getkey, 378,138,28,28, 15,15,0,D_EXIT, 0,0,"/", (void *)KEY_SLASH,NULL},
-        {d_getkey, 410,138,44,28, 15,15,0,D_EXIT, 0,0,"SHIFT", (void *)KEY_RSHIFT,NULL},
-        {d_getkey, 458,138,28,28, 15,15,0,D_EXIT, 0,0,"DEL", (void *)KEY_DEL,"DELETE"},
-        {d_getkey, 490,138,28,28, 15,15,0,D_EXIT, 0,0,"CPY", (void *)KEY_END,"COPY"},//72
-        {d_getkey, 122,170,256,28, 15,15,0,D_EXIT, 0,0,"SPACE", (void *)KEY_SPACE,NULL},
-        
+        if (ret == D_EXIT)
+        {
+                /* Traverse the current keys. */
+
+                for (i = 0, j = i; i < size; i++)
+                {
+                        /* Obtain the next unselected key. */
+
+                        for (; (j < size) && keysel[j]; j++);
+
+                        /* Copy unselected keys to the start of the list. */
+
+                        if (j < size)
+                        {
+                                if (i != j)
+                                        current_keys[i] = current_keys[j];
+                                j++;
+                        }
+
+                        /* Erase any selected keys at the end of the list. */
+
+                        else
+                                current_keys[i] = -1;
+                }
+
+                if (d->dp2 != NULL)
+                        object_message(d->dp2, MSG_DRAW, 0);
+
+                return D_O_K;
+        }
+
+        return ret;
+}
+
+/* Key definition dialogue. */
+
+static char msg_redefine[] = "Redefining XXXXXXXXXXXX";
+static char msg_assigned[] = "Assigned to keys:";
+static char msg_assign[]   = "Assign new key";
+static char msg_remove[]   = "Remove key";
+
+DIALOG bemdefinekeygui[] =
+{
+        /* proc,        x,y,w,h,        fg,bg,  key, flags,   d1, d2, label,            dp2,  dp3 */
+
+        {d_box_proc,    0,0,200,236,    FG,BG,  0,   0,       0,  0,  NULL,             NULL, NULL},
+
+        {d_ctext_proc,  100,8,0,0,      FG,BG,  0,   0,       0,  0,  msg_redefine,     NULL, NULL},
+        {d_ctext_proc,  100,24,0,0,     FG,BG,  0,   0,       0,  0,  msg_assigned,     NULL, NULL},
+        {d_list_proc,   20,40,160,80,   FG,BG,  0,   0,       0,  0,  get_current_keys, keysel, NULL},
+        {d_assign_key,  20,128,160,28,  FG,BG,  0,   D_EXIT,  0,  0,  msg_assign,       NULL, NULL},
+        {d_remove_key,  20,164,160,28,  FG,BG,  0,   D_EXIT,  0,  0,  msg_remove,       NULL, NULL},
+
+        {d_button_proc, 36,200,60,28,   FG,BG,  0,   D_CLOSE, 1,  0,  "OK",             NULL, NULL},
+        {d_button_proc, 104,200,60,28,  FG,BG,  0,   D_CLOSE, 0,  0,  "Cancel",         NULL, NULL},
+
         {d_yield_proc},
-        {0,0,0,0,0,0,0,0,0,0,0,NULL,NULL,NULL}
+        {0,             0,0,0,0,        0,0,    0,   0,       0,  0,  NULL,             NULL, NULL}
 };
 
+static int gui_keydefine_input(DIALOG *kd)
+{
+        DIALOG_PLAYER *dp;
+        DIALOG *d=bemdefinekeygui;
+        BITMAP *b;
+        int i;
+
+        key_to_define = kd->d2;
+
+        /* Wire up the buttons to the list. */
+
+        d[4].dp2 = &d[3];
+        d[5].dp2 = &d[3];
+
+        sprintf(msg_redefine, "Redefining %s", kd->dp2 != NULL ? kd->dp2 : kd->dp);
+
+        /* Initialise the current key list. */
+
+        populate_current_keys();
+
+        b = open_dialog(d);
+        dp = init_dialog(d, 0);
+
+        while (update_dialog(dp) && !menu_pressed() && !(mouse_b&2) && !key[KEY_ESC]);
+
+        /* Determine which button caused the dialogue to close. */
+
+        i = shutdown_dialog(dp);
+
+        /* Update the temporary mapping if OK was pressed. */
+
+        if (d[i].d1)
+                update_defined_keys();
+
+        close_dialog(d, b);
+        return D_O_K;
+}
+
+static int d_getkey(int msg, DIALOG *d, int cd)
+{
+        int ret = d_button_proc(msg, d, cd);
+
+        if (ret == D_EXIT)
+        {
+                gui_keydefine_input(d);
+                return D_O_K;
+        }
+        else
+                return ret;
+}
+
+/* Keyboard dialogue with emulated key values represented by Allegro keycodes.
+   Note that keycodes from actual keypresses are converted to these key values
+   via the keylookup table. */
+
+DIALOG bemdefinegui[] =
+{
+        /* proc,        x,y,w,h,        fg,bg,  key, flags,   rc, emulated key,   label,    alt label, dp3 */
+
+        {d_box_proc,    0,0,538,270,    FG,BG,  0,   0,       0,  0,              NULL,     NULL,      NULL},
+
+        {d_button_proc, 205,232,60,28,  FG,BG,  0,   D_CLOSE, 1,  0,              "OK",     NULL,      NULL},
+        {d_button_proc, 271,232,60,28,  FG,BG,  0,   D_CLOSE, 0,  0,              "Cancel", NULL,      NULL},
+
+        {d_getkey,      8,8,522,28,     FG,BG,  0,   D_EXIT,  0,  KEY_MENU,       "Menu",   NULL,      NULL},
+
+        {d_getkey,      26,56,28,28,    FG,BG,  0,   D_EXIT,  0,  KEY_ESC,        "ESC",    NULL,      NULL},
+        {d_getkey,      58,56,28,28,    FG,BG,  0,   D_EXIT,  0,  KEY_1,          "1",      NULL,      NULL},
+        {d_getkey,      90,56,28,28,    FG,BG,  0,   D_EXIT,  0,  KEY_2,          "2",      NULL,      NULL},
+        {d_getkey,      122,56,28,28,   FG,BG,  0,   D_EXIT,  0,  KEY_3,          "3",      NULL,      NULL},
+        {d_getkey,      154,56,28,28,   FG,BG,  0,   D_EXIT,  0,  KEY_4,          "4",      NULL,      NULL},
+        {d_getkey,      186,56,28,28,   FG,BG,  0,   D_EXIT,  0,  KEY_5,          "5",      NULL,      NULL},
+        {d_getkey,      218,56,28,28,   FG,BG,  0,   D_EXIT,  0,  KEY_6,          "6",      NULL,      NULL},
+        {d_getkey,      250,56,28,28,   FG,BG,  0,   D_EXIT,  0,  KEY_7,          "7",      NULL,      NULL},
+        {d_getkey,      282,56,28,28,   FG,BG,  0,   D_EXIT,  0,  KEY_8,          "8",      NULL,      NULL},
+        {d_getkey,      314,56,28,28,   FG,BG,  0,   D_EXIT,  0,  KEY_9,          "9",      NULL,      NULL},
+        {d_getkey,      346,56,28,28,   FG,BG,  0,   D_EXIT,  0,  KEY_0,          "0",      NULL,      NULL},
+        {d_getkey,      378,56,28,28,   FG,BG,  0,   D_EXIT,  0,  KEY_MINUS,      "=",      NULL,      NULL},
+        {d_getkey,      410,56,28,28,   FG,BG,  0,   D_EXIT,  0,  KEY_LEFT,       "LFT",    "LEFT",    NULL},
+        {d_getkey,      442,56,28,28,   FG,BG,  0,   D_EXIT,  0,  KEY_RIGHT,      "RGT",    "RIGHT",   NULL},
+        {d_getkey,      474,56,28,28,   FG,BG,  0,   D_EXIT,  0,  KEY_F12,        "BRK",    "BREAK",   NULL},
+
+        {d_getkey,      42,88,28,28,    FG,BG,  0,   D_EXIT,  0,  KEY_TAB,        "FN",     NULL,      NULL},
+        {d_getkey,      74,88,28,28,    FG,BG,  0,   D_EXIT,  0,  KEY_Q,          "Q",      NULL,      NULL},
+        {d_getkey,      106,88,28,28,   FG,BG,  0,   D_EXIT,  0,  KEY_W,          "W",      NULL,      NULL},
+        {d_getkey,      138,88,28,28,   FG,BG,  0,   D_EXIT,  0,  KEY_E,          "E",      NULL,      NULL},
+        {d_getkey,      170,88,28,28,   FG,BG,  0,   D_EXIT,  0,  KEY_R,          "R",      NULL,      NULL},
+        {d_getkey,      202,88,28,28,   FG,BG,  0,   D_EXIT,  0,  KEY_T,          "T",      NULL,      NULL},
+        {d_getkey,      234,88,28,28,   FG,BG,  0,   D_EXIT,  0,  KEY_Y,          "Y",      NULL,      NULL},
+        {d_getkey,      266,88,28,28,   FG,BG,  0,   D_EXIT,  0,  KEY_U,          "U",      NULL,      NULL},
+        {d_getkey,      298,88,28,28,   FG,BG,  0,   D_EXIT,  0,  KEY_I,          "I",      NULL,      NULL},
+        {d_getkey,      330,88,28,28,   FG,BG,  0,   D_EXIT,  0,  KEY_O,          "O",      NULL,      NULL},
+        {d_getkey,      362,88,28,28,   FG,BG,  0,   D_EXIT,  0,  KEY_P,          "P",      NULL,      NULL},
+        {d_getkey,      394,88,28,28,   FG,BG,  0,   D_EXIT,  0,  KEY_UP,         "UP",     NULL,      NULL},
+        {d_getkey,      426,88,28,28,   FG,BG,  0,   D_EXIT,  0,  KEY_DOWN,       "DWN",    "DOWN",    NULL},
+        {d_getkey,      458,88,28,28,   FG,BG,  0,   D_EXIT,  0,  KEY_END,        "CPY",    "COPY",    NULL},
+
+        {d_getkey,      50,120,28,28,   FG,BG,  0,   D_EXIT,  0,  KEY_LCONTROL,   "CTL",    "CTRL",    NULL},
+        {d_getkey,      82,120,28,28,   FG,BG,  0,   D_EXIT,  0,  KEY_A,          "A",      NULL,      NULL},
+        {d_getkey,      114,120,28,28,  FG,BG,  0,   D_EXIT,  0,  KEY_S,          "S",      NULL,      NULL},
+        {d_getkey,      146,120,28,28,  FG,BG,  0,   D_EXIT,  0,  KEY_D,          "D",      NULL,      NULL},
+        {d_getkey,      178,120,28,28,  FG,BG,  0,   D_EXIT,  0,  KEY_F,          "F",      NULL,      NULL},
+        {d_getkey,      210,120,28,28,  FG,BG,  0,   D_EXIT,  0,  KEY_G,          "G",      NULL,      NULL},
+        {d_getkey,      242,120,28,28,  FG,BG,  0,   D_EXIT,  0,  KEY_H,          "H",      NULL,      NULL},
+        {d_getkey,      274,120,28,28,  FG,BG,  0,   D_EXIT,  0,  KEY_J,          "J",      NULL,      NULL},
+        {d_getkey,      306,120,28,28,  FG,BG,  0,   D_EXIT,  0,  KEY_K,          "K",      NULL,      NULL},
+        {d_getkey,      338,120,28,28,  FG,BG,  0,   D_EXIT,  0,  KEY_L,          "L",      NULL,      NULL},
+        {d_getkey,      370,120,28,28,  FG,BG,  0,   D_EXIT,  0,  KEY_SEMICOLON,  ";",      NULL,      NULL},
+        {d_getkey,      402,120,28,28,  FG,BG,  0,   D_EXIT,  0,  KEY_QUOTE,      ":",      NULL,      NULL},
+        {d_getkey,      434,120,44,28,  FG,BG,  0,   D_EXIT,  0,  KEY_ENTER,      "RET",    "RETURN",  NULL},
+
+        {d_getkey,      50,152,44,28,   FG,BG,  0,   D_EXIT,  0,  KEY_LSHIFT,     "SHIFT",  NULL,      NULL},
+        {d_getkey,      98,152,28,28,   FG,BG,  0,   D_EXIT,  0,  KEY_Z,          "Z",      NULL,      NULL},
+        {d_getkey,      130,152,28,28,  FG,BG,  0,   D_EXIT,  0,  KEY_X,          "X",      NULL,      NULL},
+        {d_getkey,      162,152,28,28,  FG,BG,  0,   D_EXIT,  0,  KEY_C,          "C",      NULL,      NULL},
+        {d_getkey,      194,152,28,28,  FG,BG,  0,   D_EXIT,  0,  KEY_V,          "V",      NULL,      NULL},
+        {d_getkey,      226,152,28,28,  FG,BG,  0,   D_EXIT,  0,  KEY_B,          "B",      NULL,      NULL},
+        {d_getkey,      258,152,28,28,  FG,BG,  0,   D_EXIT,  0,  KEY_N,          "N",      NULL,      NULL},
+        {d_getkey,      290,152,28,28,  FG,BG,  0,   D_EXIT,  0,  KEY_M,          "M",      NULL,      NULL},
+        {d_getkey,      322,152,28,28,  FG,BG,  0,   D_EXIT,  0,  KEY_COMMA,      ",",      NULL,      NULL},
+        {d_getkey,      354,152,28,28,  FG,BG,  0,   D_EXIT,  0,  KEY_STOP,       ".",      NULL,      NULL},
+        {d_getkey,      386,152,28,28,  FG,BG,  0,   D_EXIT,  0,  KEY_SLASH,      "/",      NULL,      NULL},
+        {d_getkey,      418,152,44,28,  FG,BG,  0,   D_EXIT,  0,  KEY_RSHIFT,     "SHIFT",  NULL,      NULL},
+        {d_getkey,      466,152,28,28,  FG,BG,  0,   D_EXIT,  0,  KEY_DEL,        "DEL",    "DELETE",  NULL},
+
+        {d_getkey,      146,184,252,28, FG,BG,  0,   D_EXIT,  0,  KEY_SPACE,      "SPACE",  NULL,      NULL},
+
+        {d_yield_proc},
+        {0,             0,0,0,0,        0,0,    0,   0,       0,  0,              NULL,     NULL,      NULL}
+};
 
 int gui_keydefine()
 {
         DIALOG_PLAYER *dp;
-        BITMAP *b;
         DIALOG *d=bemdefinegui;
-        int x=0,y;
-        while (d[x].proc)
+        BITMAP *b;
+        int i;
+
+        /* Initialise the temporary mapping. */
+
+        for (i = 0; i < 128; i++) keytemp[i] = keylookup[i];
+
+        b = open_dialog(d);
+        dp = init_dialog(d, 0);
+
+        while (update_dialog(dp) && !menu_pressed() && !(mouse_b&2) && !key[KEY_ESC]);
+
+        /* Determine which button caused the dialogue to close. */
+
+        i = shutdown_dialog(dp);
+
+        /* Update the saved mapping if OK was pressed. */
+
+        if (d[i].d1)
         {
-                d[x].x+=(SCREEN_W/2)-(d[0].w/2);
-                d[x].y+=(SCREEN_H/2)-(d[0].h/2);
-                d[x].fg=0xFFFFFF;
-                if (x>=1 && x<=10) d[x].bg=makecol(127,0,0);
-                if (x==25 || x==26 || x==41 || x==42 || x==72) d[x].bg=makecol(127,127,127);
-                x++;
+                for (i = 0; i < 128; i++) keylookup[i] = keytemp[i];
+
+                update_break_keys();
+                update_menu_keys();
         }
-        for (x=0;x<128;x++) keytemp[x]=keylookup[x];
-        x=(SCREEN_W/2)-(d[0].w/2);
-        y=(SCREEN_H/2)-(d[0].h/2);
-        b=create_bitmap(d[0].w,d[0].h);
-        blit(screen,b,x,y,0,0,d[0].w,d[0].h);
-        dp=init_dialog(d,0);
-        while (x && !key[KEY_F11] && !(mouse_b&2) && !key[KEY_ESC])
-        {
-                x=update_dialog(dp);
-        }
-        shutdown_dialog(dp);
-        if (x==1)
-        {
-                for (x=0;x<128;x++) keylookup[x]=keytemp[x];
-        }
-        x=(SCREEN_W/2)-(d[0].w/2);
-        y=(SCREEN_H/2)-(d[0].h/2);
-        blit(b,screen,0,0,x,y,d[0].w,d[0].h);
-        x=0;
-        while (d[x].proc)
-        {
-                d[x].x -= (SCREEN_W / 2) - (d[0].w / 2);
-                d[x].y -= (SCREEN_H / 2) - (d[0].h / 2);
-                x++;
-        }
+
+        close_dialog(d, b);
         return D_O_K;
 }
+
+static void update_special_keys(int special_keys[MAX_KEYS], int keycode)
+{
+        int i, j = 0;
+
+        for (i = 0; i < 128; i++)
+        {
+                if (keylookup[i] == keycode)
+                        special_keys[j++] = i;
+        }
+
+        while (j < MAX_KEYS) special_keys[j++] = -1;
+}
+
+void update_break_keys()
+{
+        update_special_keys(break_keys, KEY_F12);
+}
+
+void update_menu_keys()
+{
+        update_special_keys(menu_keys, KEY_MENU);
+}
+
+static int special_key_pressed(int special_keys[MAX_KEYS])
+{
+        int i;
+
+        for (i = 0; i < MAX_KEYS; i++)
+        {
+                if (special_keys[i] == -1)
+                        break;
+                else if (key[special_keys[i]])
+                        return 1;
+        }
+
+        return 0;
+}
+
+int break_pressed()
+{
+        return special_key_pressed(break_keys);
+}
+
+int menu_pressed()
+{
+        return special_key_pressed(menu_keys);
+}
+
 #endif
