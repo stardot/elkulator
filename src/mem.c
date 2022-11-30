@@ -15,15 +15,26 @@ int output,timetolive;
 int mrbmapped=0;
 int plus1=0;
 uint8_t readkeys(uint16_t addr);
+uint8_t rombanks[16][16384];
+uint8_t rombank_enabled[16];
+
 uint8_t ram[32768],ram2[32768];
 uint8_t os[16384],mrbos[16384];
-uint8_t basic[16384],adfs[16384],dfs[16384];
-uint8_t rom12[16384],rom13[16384],ram6[16384];
-uint8_t sndrom[16384];
-uint8_t plus1rom[16384];
+/* Use pointers to refer to banks in the general rombanks array. */
+#define DFS_BANK 3
+#define PLUS1_BANK 12
+#define SOUND_BANK 13
+#define ADFS_BANK 15
+uint8_t *basic;
+uint8_t *adfs;
+uint8_t *dfs;
+uint8_t *sndrom;
+uint8_t *plus1rom;
 uint8_t sndlatch;
 int snden=0;
 int usedrom6=0;
+uint8_t ram6[16384];
+uint8_t cart0[16384],cart1[16384];
 
 void loadrom(uint8_t dest[16384], char *name)
 {
@@ -36,9 +47,33 @@ void loadrom(uint8_t dest[16384], char *name)
     fclose(f);
 }
 
+void loadrom_n(int bank, char *name)
+{
+    loadrom(rombanks[bank], name);
+    rombank_enabled[bank] = 1;
+}
+
+void update_rom_config(void)
+{
+    rombank_enabled[PLUS1_BANK] = plus1;
+    rombank_enabled[SOUND_BANK] = sndex;
+    rombank_enabled[ADFS_BANK] = (plus3 && adfsena);
+    rombank_enabled[DFS_BANK] = (plus3 && dfsena);
+}
+
 void loadroms()
 {
-        FILE *f;
+        for (int i = 0; i < 16; i++) {
+            memset(rombanks[i], 0, 16384);
+            rombank_enabled[i] = 0;
+        }
+
+        dfs = rombanks[DFS_BANK];
+        basic = rombanks[0xa];
+        plus1rom = rombanks[PLUS1_BANK];
+        sndrom = rombanks[SOUND_BANK];
+        adfs = rombanks[ADFS_BANK];
+
         char path[512],p2[512];
         getcwd(p2,511);
         sprintf(path,"%sroms",exedir);
@@ -47,6 +82,7 @@ void loadroms()
         loadrom(os, "os");
         loadrom(mrbos, "os300.rom");
         loadrom(basic, "basic.rom");
+        memcpy(rombanks[0xb], basic, 16384);
         loadrom(adfs, "adfs.rom");
         loadrom(dfs, "dfs.rom");
         loadrom(sndrom, "sndrom");
@@ -58,7 +94,7 @@ void loadcart(char *fn)
 {
         FILE *f=fopen(fn,"rb");
         if (!f) return;
-        fread(rom12,16384,1,f);
+        fread(cart0,16384,1,f);
         fclose(f);
 }
 
@@ -66,14 +102,14 @@ void loadcart2(char *fn)
 {
         FILE *f=fopen(fn,"rb");
         if (!f) return;
-        fread(rom13,16384,1,f);
+        fread(cart1,16384,1,f);
         fclose(f);
 }
 
 void unloadcart()
 {
-        memset(rom12,0,16384);
-        memset(rom13,0,16384);
+        memset(cart0,0,16384);
+        memset(cart1,0,16384);
 }
 
 void dumpram()
@@ -85,6 +121,8 @@ void dumpram()
 
 void resetmem()
 {
+        update_rom_config();
+
         FASTLOW=turbo || (mrb && mrbmode);
         FASTHIGH2=(mrb && mrbmode==2);
 }
@@ -113,14 +151,16 @@ uint8_t readmem(uint16_t addr)
                         if (intrombank&2) return basic[addr&0x3FFF];
                         return readkeys(addr);
                 }
-                if (rombank==0x0) return rom12[addr&0x3FFF];
-                if (rombank==0x1) return rom13[addr&0x3FFF];
-                if (plus1 && rombank==0xC) return plus1rom[addr&0x3FFF];
-                if (sndex && rombank==0xD) return sndrom[addr&0x3FFF];
-                if (rombank==0xF && plus3 && adfsena) return adfs[addr&0x3FFF];
-                if (rombank==0x3 && plus3 && dfsena)  return dfs[addr&0x3FFF];
+                /* Treat cartridges specially for now. */
+                if (rombank==0) return cart0[addr&0x3FFF];
+                if (rombank==1) return cart1[addr&0x3FFF];
+
+                /* Handle other ROMs. */
+                if (rombank_enabled[rombank])
+                    return rombanks[rombank][addr & 0x3fff];
+
                 if (rombank==0x6) return ram6[addr&0x3FFF];
-//                if (rombank==0) return game[addr&0x3FFF];
+
                 return addr>>8;
         }
         if ((addr&0xFF00)==0xFC00 || (addr&0xFF00)==0xFD00)
@@ -180,8 +220,8 @@ void writemem(uint16_t addr, uint8_t val)
         }
         if (addr<0xC000)
         {
-                if (extrom && rombank==0xD && (addr&0x2000)) sndrom[addr&0x3FFF]=val;
-                if (extrom && rombank==0x3 && plus3 && dfsena) dfs[addr&0x3FFF]=val;
+                if (extrom && rombank==SOUND_BANK && (addr&0x2000)) sndrom[addr&0x3FFF]=val;
+                if (extrom && rombank==DFS_BANK && plus3 && dfsena) dfs[addr&0x3FFF]=val;
                 if (extrom && rombank==0x6) { ram6[addr&0x3FFF]=val; usedrom6=1; }
         }
         if ((addr&0xFF00)==0xFE00) writeula(addr,val);
