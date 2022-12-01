@@ -40,10 +40,22 @@ class Reader:
 # Line ending conversion functions.
 
 def cr_to_lf(s):
-    return s.replace("\r", "\n")
+
+    """
+    Convert output from the Electron having optional line feeds to data
+    containing line feeds, replacing carriage returns.
+    """
+
+    return s.replace("\n", "").replace("\r", "\n")
 
 def lf_to_cr(s):
-    return s.replace("\n", "\r")
+
+    """
+    Handle input to the Electron having optional carriage returns to data
+    containing carriage returns, replacing line feeds.
+    """
+
+    return s.replace("\r", "").replace("\n", "\r")
 
 # Communications functions.
 
