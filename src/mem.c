@@ -132,6 +132,7 @@ uint8_t readmem(uint16_t addr)
                         if (addr==0xFC70) return readadc();
                         if (addr==0xFC72) return getplus1stat();
                 }
+                if (addr>=0xFC60 && addr<=0xFC6F && plus1) return readserial(addr);
 //                if ((addr&~0x1F)==0xFC20) return readsid(addr);
                 return addr>>8;
         }
@@ -212,6 +213,7 @@ void writemem(uint16_t addr, uint8_t val)
 //                if (!val) output=1;
         }
         if (addr==0xFC70 && plus1) writeadc(val);
+        if (addr>=0xFC60 && addr<=0xFC6F && plus1) return writeserial(addr, val);
         if (addr==0xFC71 && plus1) writeparallel(val);
 }
 
