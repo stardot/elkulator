@@ -54,14 +54,14 @@ int socket_open(const char *filename)
 	int socket_fd;
 
         if (!strlen(filename))
-                return;
+                return -1;
 
         socket_fd = socket(AF_UNIX, SOCK_STREAM, PF_UNIX);
 
         if (socket_fd == -1)
         {
-                perror("Failed to open serial communications socket");
-                return;
+                perror("Failed to open communications socket");
+                return -1;
         }
 
         /* Make the socket non-blocking to be able to receive characters
@@ -79,8 +79,8 @@ int socket_open(const char *filename)
         if (connect(socket_fd, (const struct sockaddr *) &addr,
                     sizeof(struct sockaddr_un)) == -1)
         {
-                perror("Failed to connect to serial communications socket");
-                return;
+                perror("Failed to connect to communications socket");
+                return -1;
         }
 
 	return socket_fd;
