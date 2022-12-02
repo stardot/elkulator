@@ -43,7 +43,7 @@ Status
 ULA    - Cycle accurate graphics emulation.
 Sound  - Plays back samples correctly.
 Tape   - Works with UEF, HQ-UEF and CSW files. Loading is (optionally) accelerated. Read only.
-Plus 1 - ADC only (joysticks)
+Plus 1 - ADC (joysticks), parallel and some serial support.
 Plus 3 - Two drives, ADFS + DFS, Read/Write. FDI support (though no images exist yet).
 CSS    - Using SN emulator from B-em.
 
