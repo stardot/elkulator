@@ -212,6 +212,7 @@ void writemem(uint16_t addr, uint8_t val)
 //                if (!val) output=1;
         }
         if (addr==0xFC70 && plus1) writeadc(val);
+        if (addr==0xFC71 && plus1) writeparallel(val);
 }
 
 int keys[2][14][4]=

@@ -3,7 +3,7 @@
 #include <allegro.h>
 #include "elk.h"
 
-uint8_t plus1stat=0xFF;
+uint8_t plus1stat=0x7F;
 
 int adctime=0;
 uint8_t adcdat;
