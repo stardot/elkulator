@@ -214,6 +214,7 @@ void writemem(uint16_t addr, uint8_t val)
         }
         if (addr==0xFC70 && plus1) writeadc(val);
         if (addr>=0xFC60 && addr<=0xFC6F && plus1) return writeserial(addr, val);
+        if (addr==0xFC71 && plus1) writeparallel(val);
 }
 
 int keys[2][14][4]=

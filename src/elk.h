@@ -315,6 +315,9 @@ void palfilter(BITMAP *src, BITMAP *dest, int depth);
 
 void entergui();
 
+/* Plus 1 parallel port */
+void writeparallel(uint8_t val);
+
 #ifdef __cplusplus
 }
 #endif

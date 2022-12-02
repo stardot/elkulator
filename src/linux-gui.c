@@ -36,7 +36,7 @@ MENU memmenu[5];
 MENU mrbmenu[4];
 MENU ulamenu[3];
 MENU settingsmenu[7];
-MENU miscmenu[4];
+MENU miscmenu[5];
 MENU mainmenu[7];
 MENU joymenu[3];
 MENU ddtypemenu[3];
@@ -629,11 +629,18 @@ int gui_stopmovie()
     return D_O_K;
 }
 
-MENU miscmenu[4]=
+int gui_startdebugging()
+{
+    debug=debugon=1;
+    startdebug();
+}
+
+MENU miscmenu[5]=
 {
         {"Save screenshot",gui_scrshot,NULL,0,NULL},
         {"Start movie",gui_startmovie,NULL,0,NULL},
         {"Stop movie",gui_stopmovie,NULL,0,NULL},
+        {"Start debugging",gui_startdebugging,NULL,0,NULL},
         {NULL,NULL,NULL,0,NULL}
 };
 
