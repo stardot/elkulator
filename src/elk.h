@@ -316,7 +316,12 @@ void palfilter(BITMAP *src, BITMAP *dest, int depth);
 void entergui();
 
 /* Plus 1 parallel port */
+void resetparallel();
 void writeparallel(uint8_t val);
+
+/* Socket utilities. */
+int socket_input(int socket_fd, char *buffer, size_t count);
+int socket_open(const char *filename);
 
 #ifdef __cplusplus
 }

@@ -26,14 +26,7 @@
 
 /* Socket communication. */
 
-#include <fcntl.h>
-#include <string.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/un.h>
-#include <poll.h>
-
-static int socket_fd;
+static int socket_fd = -1;
 
 
 
@@ -825,21 +818,14 @@ static void channel_command(struct channel *ch, uint8_t val)
 
 static void channel_get_input(struct channel *ch)
 {
-        struct pollfd fds[] = {{.fd = socket_fd, .events = POLLIN}};
-
-        if (ch->have_input)
-                return;
-
-        if (poll(fds, 1, 0) == -1)
-                return;
-
-        if (read(socket_fd, &ch->input_char, 1) == 1)
+	if ((socket_fd != -1) && socket_input(socket_fd, &ch->input_char, 1))
                 ch->have_input = 1;
 }
 
 static void channel_set_output(struct channel *ch)
 {
-        write(socket_fd, &ch->output_char, 1);
+	if (socket_fd != -1)
+		write(socket_fd, &ch->output_char, 1);
 }
 
 
@@ -1078,54 +1064,13 @@ static void reset_registers()
 
 
 
-/* Open a socket for data exchange. */
-
-extern char serialname[512];
-
-static void open_socket()
-{
-        struct sockaddr_un addr;
-        int flags;
-
-        if (!strlen(serialname))
-                return;
-
-        socket_fd = socket(AF_UNIX, SOCK_STREAM, PF_UNIX);
-
-        if (socket_fd == -1)
-        {
-                perror("Failed to open serial communications socket");
-                return;
-        }
-
-        /* Make the socket non-blocking to be able to receive characters
-           concurrently. */
-
-        flags = fcntl(socket_fd, F_GETFL, 0);
-        fcntl(socket_fd, F_SETFL, flags | O_NONBLOCK);
-
-        /* Connect to a named UNIX address. */
-
-        memset(&addr, 0, sizeof(struct sockaddr_un));
-        addr.sun_family = AF_UNIX;
-        strncpy(addr.sun_path, serialname, sizeof(addr.sun_path) - 1);
-
-        if (connect(socket_fd, (const struct sockaddr *) &addr,
-                    sizeof(struct sockaddr_un)) == -1)
-        {
-                perror("Failed to connect to serial communications socket");
-                return;
-        }
-}
-
-
-
 /* Exported functions. */
 
 /* Reset the serial controller's registers. */
 
 void resetserial()
 {
+	extern char serialname[512];
         int i;
 
         /* Initialise channels. */
@@ -1165,7 +1110,7 @@ void resetserial()
 
         /* Open a socket and attempt to establish a serial connection. */
 
-        open_socket();
+        socket_fd = socket_open(serialname);
 }
 
 /* Read from a serial controller register. */

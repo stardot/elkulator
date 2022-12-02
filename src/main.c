@@ -63,6 +63,7 @@ void cleardrawit()
 char tapename[512];
 char romname[512];
 char romname2[512];
+char parallelname[512];
 char serialname[512];
 extern int serial_debug;
 
@@ -70,12 +71,12 @@ void initelk(int argc, char *argv[])
 {
         int c;
         char *p;
-        int tapenext=0,discnext=0,romnext=0,serialnext=0,serialdebugnext=0;
+        int tapenext=0,discnext=0,romnext=0,parallelnext=0,serialnext=0,serialdebugnext=0;
         get_executable_name(exedir,511);
         p=get_filename(exedir);
         p[0]=0;
         romname[0]=romname2[0]=discname[0]=discname2[0]=tapename[0]=0;
-        serialname[0]=0;
+        parallelname[0]=0;serialname[0]=0;
 //        printf("Load config\n");
         loadconfig();
 //printf("commandline\n");
@@ -99,6 +100,7 @@ void initelk(int argc, char *argv[])
                         printf("-tape tape.uef  - load tape.uef\n");
                         printf("-rom1 rom       - load rom into cartridge ROM bank 1\n");
                         printf("-rom2 rom       - load rom into cartridge ROM bank 2\n");
+                        printf("-parallel file  - use file as a socket for parallel output\n");
                         printf("-serial file    - use file as a socket for serial communications\n");
                         printf("-serialdebug n  - set serial debugging output level to n\n");
                         printf("-debug          - start debugger\n");
@@ -126,6 +128,10 @@ void initelk(int argc, char *argv[])
                 {
                         romnext=2;
                 }
+                else if (!strcasecmp(argv[c],"-parallel"))
+                {
+                        parallelnext=1;
+                }
                 else if (!strcasecmp(argv[c],"-serial"))
                 {
                         serialnext=1;
@@ -152,6 +158,11 @@ void initelk(int argc, char *argv[])
                         if (romnext==1) strcpy(romname,argv[c]);
                         romnext=0;
                 }
+                else if (parallelnext)
+                {
+                        strcpy(parallelname,argv[c]);
+                        parallelnext=0;
+                }
                 else if (serialnext)
                 {
                         strcpy(serialname,argv[c]);
@@ -174,6 +185,7 @@ void initelk(int argc, char *argv[])
         initula();
         resetula();
         reset1770();
+        resetparallel();
         resetserial();
         
         loadtape(tapename);

@@ -31,7 +31,7 @@ filename. For example:
 If Elkulator cannot connect to the client, it will start up successfully but
 report an error. For example:
 
-  Failed to connect to serial communications socket: No such file or directory
+  Failed to connect to communications socket: No such file or directory
 
 Elkulator can also be asked to provide more information about its serial
 emulation activities using the -serialdebug option with a debugging level
@@ -52,7 +52,7 @@ In the emulated Electron, the following commands are useful:
             or VDU 2, and disabled using Ctrl-C or VDU 3
 
 Currently, the serial client performs end-of-line character conversion to
-permit its use as a simple console.
+permit its use as a simple console and to simplify printer configuration.
 
 ----
 
