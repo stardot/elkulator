@@ -179,7 +179,7 @@ void updateulaints()
                 irq=1;
 //                printf("Interrupt %02X %02X\n",ula.isr,ula.ier);
         }
-        else if (ula.isr & 0x01)
+        else if (plus1 && (ula.isr & 0x01))
                 irq = 1;
         else
         {
