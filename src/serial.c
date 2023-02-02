@@ -3,7 +3,7 @@
  *
  * See: SCN2681 Dual asynchronous receiver/transmitter (DUART)
  *
- * Copyright (C) 2022 Paul Boddie <paul@boddie.org.uk>
+ * Copyright (C) 2022, 2023 Paul Boddie <paul@boddie.org.uk>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -818,14 +818,14 @@ static void channel_command(struct channel *ch, uint8_t val)
 
 static void channel_get_input(struct channel *ch)
 {
-	if ((socket_fd != -1) && socket_input(socket_fd, &ch->input_char, 1))
+        if ((socket_fd != -1) && socket_input(socket_fd, &ch->input_char, 1))
                 ch->have_input = 1;
 }
 
 static void channel_set_output(struct channel *ch)
 {
-	if (socket_fd != -1)
-		write(socket_fd, &ch->output_char, 1);
+        if (socket_fd != -1)
+                write(socket_fd, &ch->output_char, 1);
 }
 
 
@@ -1070,7 +1070,7 @@ static void reset_registers()
 
 void resetserial()
 {
-	extern char serialname[512];
+        extern char serialname[512];
         int i;
 
         /* Initialise channels. */
@@ -1110,7 +1110,8 @@ void resetserial()
 
         /* Open a socket and attempt to establish a serial connection. */
 
-        socket_fd = socket_open(serialname);
+        if (socket_fd == -1)
+                socket_fd = socket_open(serialname);
 }
 
 /* Read from a serial controller register. */
