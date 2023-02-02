@@ -233,6 +233,7 @@ void runelk()
                 {
                         memset(ram,0,32768);
                         resetula();
+                        resetserial();
                         reset6502();
                         resetit=0;
                 }
