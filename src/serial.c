@@ -24,6 +24,10 @@
 
 
 
+/* IRQ status. */
+
+int serial_irq = 0;
+
 /* Socket communication. */
 
 static int socket_fd = -1;
@@ -1045,9 +1049,9 @@ static void set_output_port(uint8_t val)
 static void update_interrupts()
 {
         if (sr[IMR] & sr[ISR])
-                intula(1);
+                serial_irq = 1;
         else
-                clearintula(1);
+                serial_irq = 0;
 }
 
 
