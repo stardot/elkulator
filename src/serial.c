@@ -581,6 +581,9 @@ static void channel_push_fifo(struct channel *ch)
 
                 if (ch->mr[MR1] & MR1_RxRTS)
                         channel_rts_set(ch);
+
+                if (serial_debug)
+                        fprintf(stderr, "FIFO full.\n");
         }
 
         /* Vacate the shift register. */
