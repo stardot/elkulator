@@ -1115,6 +1115,10 @@ void resetserial()
         receive_cycles = 0;
         transmit_cycles = 0;
 
+        /* Reset the IRQ line. */
+
+        serial_irq = 0;
+
         /* Open a socket and attempt to establish a serial connection. */
 
         if (socket_fd == -1)
