@@ -22,6 +22,14 @@ typedef struct
 } CPUStatus;
 extern CPUStatus p;
 
+enum
+{
+        ULA_CONVENTIONAL = 0,
+        ULA_RAM_8BIT = 2,
+        ULA_RAM_8BIT_DUAL_ACCESS = 2,
+        ULA_RAM_8BIT_SINGLE_ACCESS = 3
+};
+
 extern uint8_t opcode;
 extern int nmi,irq;
 extern int rombank,intrombank;
