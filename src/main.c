@@ -61,22 +61,23 @@ void cleardrawit()
 }*/
 
 char tapename[512];
-char romname[512];
-char romname2[512];
 char parallelname[512];
 char serialname[512];
 extern int serial_debug;
+char romnames[16][1024];
 
 void initelk(int argc, char *argv[])
 {
         int c;
         char *p;
-        int tapenext=0,discnext=0,romnext=0,parallelnext=0,serialnext=0,serialdebugnext=0;
+        int tapenext=0,discnext=0,romnext=-2,parallelnext=0,serialnext=0,serialdebugnext=0;
         get_executable_name(exedir,511);
         p=get_filename(exedir);
         p[0]=0;
-        romname[0]=romname2[0]=discname[0]=discname2[0]=tapename[0]=0;
+        discname[0]=discname2[0]=tapename[0]=0;
         parallelname[0]=0;serialname[0]=0;
+        for (int i = 0; i < 16; i++)
+            romnames[i][0] = 0;
 //        printf("Load config\n");
         loadconfig();
 //printf("commandline\n");
@@ -98,11 +99,10 @@ void initelk(int argc, char *argv[])
                         printf("-disc disc.ssd  - load disc.ssd into drives :0/:2\n");
                         printf("-disc1 disc.ssd - load disc.ssd into drives :1/:3\n");
                         printf("-tape tape.uef  - load tape.uef\n");
-                        printf("-rom1 rom       - load rom into cartridge ROM bank 1\n");
-                        printf("-rom2 rom       - load rom into cartridge ROM bank 2\n");
                         printf("-parallel file  - use file as a socket for parallel output\n");
                         printf("-serial file    - use file as a socket for serial communications\n");
                         printf("-serialdebug n  - set serial debugging output level to n\n");
+                        printf("-rom number rom - load rom into the numbered bank\n");
                         printf("-debug          - start debugger\n");
                         exit(-1);
                 }
@@ -120,13 +120,9 @@ void initelk(int argc, char *argv[])
                 {
                         discnext=2;
                 }
-                else if (!strcasecmp(argv[c],"-rom1"))
+                else if (!strcasecmp(argv[c],"-rom"))
                 {
-                        romnext=1;
-                }
-                else if (!strcasecmp(argv[c],"-rom2"))
-                {
-                        romnext=2;
+                        romnext=-1;
                 }
                 else if (!strcasecmp(argv[c],"-parallel"))
                 {
@@ -152,11 +148,15 @@ void initelk(int argc, char *argv[])
                         else             strcpy(discname,argv[c]);
                         discnext=0;
                 }
-                else if (romnext)
+                else if (romnext > -2)
                 {
-                        if (romnext==2) strcpy(romname2,argv[c]);
-                        if (romnext==1) strcpy(romname,argv[c]);
-                        romnext=0;
+                    if (romnext == -1)
+                        romnext = atoi(argv[c]);
+                    else if (romnext < 16) {
+                        fprintf(stderr, "Loading %s in bank %d\n", argv[c], romnext);
+                        strcpy(romnames[romnext],argv[c]);
+                        romnext = -2;
+                    }
                 }
                 else if (parallelnext)
                 {
@@ -191,8 +191,13 @@ void initelk(int argc, char *argv[])
         loadtape(tapename);
         loaddisc(0,discname);
         loaddisc(1,discname2);
-        loadcart(romname);
-        loadcart2(romname2);
+        /* For temporary compatibility: */
+        if (romnames[0][0] != 0) loadcart(romnames[0]);
+        if (romnames[1][0] != 0) loadcart2(romnames[1]);
+        /* Load ROMs normally. */
+        for (int i = 0; i < 16; i++) {
+            if (romnames[i][0] != 0) loadrom_n(i, romnames[i]);
+        }
         if (defaultwriteprot) writeprot[0]=writeprot[1]=1;
 #ifndef WIN32
         install_keyboard();

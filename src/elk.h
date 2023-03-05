@@ -230,6 +230,7 @@ void mixbuffer(int16_t *d);
 void givealbufferdd(int16_t *buf);
 
 void loadroms();
+void loadrom_n(int, char *fn);
 void resetmem();
 void dumpram();
 void loadcart(char *fn);
