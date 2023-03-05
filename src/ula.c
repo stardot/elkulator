@@ -173,13 +173,15 @@ void resetula()
 
 void updateulaints()
 {
+        extern int serial_irq;
+
         if (ula.isr & ula.ier & 0x7C)
         {
                 ula.isr|=1;
                 irq=1;
 //                printf("Interrupt %02X %02X\n",ula.isr,ula.ier);
         }
-        else if (ula.isr & 0x01)
+        else if (plus1 && serial_irq)
                 irq = 1;
         else
         {
