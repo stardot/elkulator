@@ -181,6 +181,9 @@ extern int usedrom6;
 
 extern int firstbyte;
 
+extern int enable_mgc;
+extern int enable_db_flash_cartridge;
+
 extern int keylookup[128];
 extern int plus1;
 extern uint8_t plus1stat;

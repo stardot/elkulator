@@ -11,6 +11,7 @@ int FASTHIGH2=0;
 //#define FASTLOW (turbo || (mrb && mrbmode && mrbmapped))
 #define FASTHIGH (FASTHIGH2 && ((pc&0xE000)!=0xC000))
 
+#define NUM_BANKS 256
 int output,timetolive;
 int mrbmapped=0;
 int plus1=0;
@@ -18,7 +19,8 @@ uint8_t readkeys(uint16_t addr);
 uint8_t ram[32768],ram2[32768];
 uint8_t os[16384],mrbos[16384];
 uint8_t basic[16384],adfs[16384],dfs[16384];
-uint8_t rom12[16384],rom13[16384],ram6[16384];
+uint8_t rom12[NUM_BANKS * 16384],rom13[NUM_BANKS * 16384],ram6[16384];
+uint8_t bank = 0;
 uint8_t sndrom[16384];
 uint8_t plus1rom[16384];
 uint8_t sndlatch;
@@ -38,7 +40,6 @@ void loadrom(uint8_t dest[16384], char *name)
 
 void loadroms()
 {
-        FILE *f;
         char path[512],p2[512];
         getcwd(p2,511);
         sprintf(path,"%sroms",exedir);
@@ -58,7 +59,7 @@ void loadcart(char *fn)
 {
         FILE *f=fopen(fn,"rb");
         if (!f) return;
-        fread(rom12,16384,1,f);
+        fread(rom12,NUM_BANKS * 16384,1,f);
         fclose(f);
 }
 
@@ -66,14 +67,14 @@ void loadcart2(char *fn)
 {
         FILE *f=fopen(fn,"rb");
         if (!f) return;
-        fread(rom13,16384,1,f);
+        fread(rom13,NUM_BANKS * 16384,1,f);
         fclose(f);
 }
 
 void unloadcart()
 {
-        memset(rom12,0,16384);
-        memset(rom13,0,16384);
+        memset(rom12,0,NUM_BANKS * 16384);
+        memset(rom13,0,NUM_BANKS * 16384);
 }
 
 void dumpram()
@@ -87,6 +88,8 @@ void resetmem()
 {
         FASTLOW=turbo || (mrb && mrbmode);
         FASTHIGH2=(mrb && mrbmode==2);
+        bank = 0;
+        fprintf(stderr, "bank = %i\n", bank);
 }
 
 uint8_t readmem(uint16_t addr)
@@ -113,8 +116,8 @@ uint8_t readmem(uint16_t addr)
                         if (intrombank&2) return basic[addr&0x3FFF];
                         return readkeys(addr);
                 }
-                if (rombank==0x0) return rom12[addr&0x3FFF];
-                if (rombank==0x1) return rom13[addr&0x3FFF];
+                if (rombank==0x0) return rom12[(bank * 16384) + (addr&0x3FFF)];
+                if (rombank==0x1) return rom13[(bank * 16384) + (addr&0x3FFF)];
                 if (plus1 && rombank==0xC) return plus1rom[addr&0x3FFF];
                 if (sndex && rombank==0xD) return sndrom[addr&0x3FFF];
                 if (rombank==0xF && plus3 && adfsena) return adfs[addr&0x3FFF];
@@ -215,6 +218,17 @@ void writemem(uint16_t addr, uint8_t val)
         if (addr==0xFC70 && plus1) writeadc(val);
         if (addr>=0xFC60 && addr<=0xFC6F && plus1) return writeserial(addr, val);
         if (addr==0xFC71 && plus1) writeparallel(val);
+        /* The Mega Games Cartridge uses FC00 to select pairs of 16K banks in
+           the two sets of ROMs. */
+        if (enable_mgc && (addr == 0xfc00)) {
+            fprintf(stderr, "bank = %i\n", val); bank = val;
+        }
+        /* DB: My cartridge uses FC73 to select 32K regions in a flash ROM.
+           For convenience we use the same paired 16K ROM arrangement as for
+           the MGC. */
+        if (enable_db_flash_cartridge && (addr == 0xfc73)) {
+            fprintf(stderr, "bank = %i\n", val); bank = val;
+        }
 }
 
 int keys[2][14][4]=
