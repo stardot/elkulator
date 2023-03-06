@@ -32,7 +32,7 @@ MENU videomenu[3];
 MENU soundmenu[7];
 MENU keymenu[2];
 MENU dischmenu[4];
-MENU memmenu[5];
+MENU memmenu[6];
 MENU mrbmenu[4];
 MENU ulamenu[3];
 MENU settingsmenu[7];
@@ -64,6 +64,7 @@ void updatelinuxgui()
         memmenu[1].flags=(mrb)?D_SELECTED:0;
         for (x=0;x<3;x++)  mrbmenu[x].flags=(mrbmode==(int)mrbmenu[x].dp)?D_SELECTED:0;
         for (x=0;x<2;x++)  ulamenu[x].flags=(ulamode==(int)ulamenu[x].dp)?D_SELECTED:0;
+        memmenu[4].flags=(enable_jim)?D_SELECTED:0;
         joymenu[0].flags=(plus1)?D_SELECTED:0;
         joymenu[1].flags=(firstbyte)?D_SELECTED:0;
 //        for (x=0;x<5;x++)  waveformmenu[x].flags=(curwave==(int)waveformmenu[x].dp)?D_SELECTED:0;
@@ -552,12 +553,21 @@ int gui_mrb()
         return D_O_K;
 }
 
-MENU memmenu[5]=
+int gui_jim()
+{
+        enable_jim=!enable_jim;
+        resetit=1;
+        updatelinuxgui();
+        return D_O_K;
+}
+
+MENU memmenu[6]=
 {
         {"&Elektuur/Slogger turbo board",gui_turbo,NULL,0,NULL},
         {"&Slogger/Jafa Master RAM board",gui_mrb,NULL,0,NULL},
         {"&Master RAM board mode",NULL,mrbmenu,0,NULL},
         {"Enhanced &ULA mode",NULL,ulamenu,0,NULL},
+        {"&Paged RAM in FD (JIM)",gui_jim,NULL,0,NULL},
         {NULL,NULL,NULL,0,NULL}
 };
 
