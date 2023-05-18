@@ -14,6 +14,7 @@ int defaultwriteprot;
 int joffset;
 int enable_mgc;
 int enable_db_flash_cartridge;
+int enable_jim;
 
 char *getstringcfg(char *name)
 {
@@ -97,6 +98,7 @@ void loadconfig()
         mrb=getintcfg("mrb",0);
         mrbmode=getintcfg("mrbmode",0);
         ulamode=getintcfg("ulamode",0);
+        enable_jim = getintcfg("enable_jim",0);
 
         drawmode=getintcfg("filter",0);
         
@@ -162,6 +164,7 @@ void saveconfig()
         writeintcfg("mrb",mrb);
         writeintcfg("mrbmode",mrbmode);
         writeintcfg("ulamode",ulamode);
+        writeintcfg("enable_jim", enable_jim);
         
         writeintcfg("filter",drawmode);
         
