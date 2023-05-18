@@ -23,7 +23,7 @@ extern int ddtype,ddvol,sndddnoise;
 
 MENU filemenu[6];
 MENU discmenu[8];
-MENU rommenu[4];
+MENU rommenu[5];
 MENU tapespdmenu[4];
 MENU tapemenu[5];
 MENU displaymenu[7];
@@ -41,6 +41,7 @@ MENU mainmenu[7];
 MENU joymenu[3];
 MENU ddtypemenu[3];
 MENU ddvolmenu[4];
+MENU romcartsmenu[3];
 
 void updatelinuxgui()
 {
@@ -70,6 +71,8 @@ void updatelinuxgui()
         ddtypemenu[1].flags=(ddtype)?D_SELECTED:0;
         for (x=0;x<3;x++)  ddvolmenu[x].flags=(ddvol==(int)ddvolmenu[x].dp)?D_SELECTED:0;
 //        keymenu[1].flags=(keyas)?D_SELECTED:0;
+        romcartsmenu[0].flags = (enable_mgc)?D_SELECTED:0;
+        romcartsmenu[1].flags = (enable_db_flash_cartridge)?D_SELECTED:0;
 }
 
 int gui_keydefine();
@@ -253,11 +256,12 @@ MENU discmenu[8]=
         {NULL,NULL,NULL,0,NULL}
 };
 
-MENU rommenu[4]=
+MENU rommenu[5]=
 {
         {"Load ROM cartridge &1...",gui_romload0,NULL,0,NULL},
         {"Load ROM cartridge &2...",gui_romload1,NULL,0,NULL},
         {"&Unload ROM cartridges...",gui_romeject0,NULL,0,NULL},
+        {"Multi-ROM expansions",NULL,romcartsmenu,0,NULL},
         {NULL,NULL,NULL,0,NULL}
 };
 
@@ -642,6 +646,26 @@ MENU miscmenu[5]=
         {"Start movie",gui_startmovie,NULL,0,NULL},
         {"Stop movie",gui_stopmovie,NULL,0,NULL},
         {"Start debugging",gui_startdebugging,NULL,0,NULL},
+        {NULL,NULL,NULL,0,NULL}
+};
+
+int gui_mgc()
+{
+        enable_mgc=!enable_mgc;
+        updatelinuxgui();
+        return D_O_K;
+}
+int gui_db_flash_cartridge()
+{
+        enable_db_flash_cartridge=!enable_db_flash_cartridge;
+        updatelinuxgui();
+        return D_O_K;
+}
+
+MENU romcartsmenu[3]=
+{
+        {"Mega Games Cartridge",gui_mgc,0,NULL,0},
+        {"David's Flash ROM Cartridge",gui_db_flash_cartridge,0,NULL,0},
         {NULL,NULL,NULL,0,NULL}
 };
 

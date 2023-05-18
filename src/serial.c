@@ -3,7 +3,7 @@
  *
  * See: SCN2681 Dual asynchronous receiver/transmitter (DUART)
  *
- * Copyright (C) 2022 Paul Boddie <paul@boddie.org.uk>
+ * Copyright (C) 2022, 2023 Paul Boddie <paul@boddie.org.uk>
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,6 +23,10 @@
 #include "elk.h"
 
 
+
+/* IRQ status. */
+
+int serial_irq = 0;
 
 /* Socket communication. */
 
@@ -577,6 +581,9 @@ static void channel_push_fifo(struct channel *ch)
 
                 if (ch->mr[MR1] & MR1_RxRTS)
                         channel_rts_set(ch);
+
+                if (serial_debug)
+                        fprintf(stderr, "FIFO full.\n");
         }
 
         /* Vacate the shift register. */
@@ -818,14 +825,14 @@ static void channel_command(struct channel *ch, uint8_t val)
 
 static void channel_get_input(struct channel *ch)
 {
-	if ((socket_fd != -1) && socket_input(socket_fd, &ch->input_char, 1))
+        if ((socket_fd != -1) && socket_input(socket_fd, &ch->input_char, 1))
                 ch->have_input = 1;
 }
 
 static void channel_set_output(struct channel *ch)
 {
-	if (socket_fd != -1)
-		write(socket_fd, &ch->output_char, 1);
+        if (socket_fd != -1)
+                write(socket_fd, &ch->output_char, 1);
 }
 
 
@@ -1045,9 +1052,9 @@ static void set_output_port(uint8_t val)
 static void update_interrupts()
 {
         if (sr[IMR] & sr[ISR])
-                intula(1);
+                serial_irq = 1;
         else
-                clearintula(1);
+                serial_irq = 0;
 }
 
 
@@ -1070,7 +1077,7 @@ static void reset_registers()
 
 void resetserial()
 {
-	extern char serialname[512];
+        extern char serialname[512];
         int i;
 
         /* Initialise channels. */
@@ -1108,9 +1115,14 @@ void resetserial()
         receive_cycles = 0;
         transmit_cycles = 0;
 
+        /* Reset the IRQ line. */
+
+        serial_irq = 0;
+
         /* Open a socket and attempt to establish a serial connection. */
 
-        socket_fd = socket_open(serialname);
+        if (socket_fd == -1)
+                socket_fd = socket_open(serialname);
 }
 
 /* Read from a serial controller register. */

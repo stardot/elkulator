@@ -12,6 +12,8 @@ int sndint;
 int firstbyte;
 int defaultwriteprot;
 int joffset;
+int enable_mgc;
+int enable_db_flash_cartridge;
 
 char *getstringcfg(char *name)
 {
@@ -132,6 +134,10 @@ void loadconfig()
                 keylookup[c]=getintcfg(s2,c);
         }
 
+        /* Cartridge expansions */
+        enable_mgc = getintcfg("enable_mgc", 0);
+        enable_db_flash_cartridge = getintcfg("enable_db_flash_cartridge", 0);
+
         fclose(cfgfile);
 }
 
@@ -179,6 +185,10 @@ void saveconfig()
                 sprintf(s,"key_define_%03i",c);
                 writeintcfg(s,keylookup[c]);
         }
+
+        /* Cartridge expansions */
+        writeintcfg("enable_mgc", enable_mgc);
+        writeintcfg("enable_db_flash_cartridge", enable_db_flash_cartridge);
 
         fclose(cfgfile);
 }
