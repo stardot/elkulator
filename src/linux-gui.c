@@ -63,7 +63,7 @@ void updatelinuxgui()
         memmenu[0].flags=(turbo)?D_SELECTED:0;
         memmenu[1].flags=(mrb)?D_SELECTED:0;
         for (x=0;x<3;x++)  mrbmenu[x].flags=(mrbmode==(int)mrbmenu[x].dp)?D_SELECTED:0;
-        for (x=0;x<2;x++)  ulamenu[x].flags=(ulamode==(int)ulamenu[x].dp)?D_SELECTED:0;
+        for (x=0;x<3;x++)  ulamenu[x].flags=(ulamode==(int)ulamenu[x].dp)?D_SELECTED:0;
         memmenu[4].flags=(enable_jim)?D_SELECTED:0;
         joymenu[0].flags=(plus1)?D_SELECTED:0;
         joymenu[1].flags=(firstbyte)?D_SELECTED:0;
@@ -531,7 +531,8 @@ int gui_ulamode()
 MENU ulamenu[3]=
 {
         {"&Standard",gui_ulamode,NULL,0,(void *)0},
-        {"&Enhanced",gui_ulamode,NULL,0,(void *)1},
+        {"&Enhanced (8-bit, dual access)",gui_ulamode,NULL,0,(void *)ULA_RAM_8BIT_DUAL_ACCESS},
+        {"&Enhanced (8-bit, single access)",gui_ulamode,NULL,0,(void *)ULA_RAM_8BIT_SINGLE_ACCESS},
         {NULL,NULL,NULL,0,NULL}
 };
 

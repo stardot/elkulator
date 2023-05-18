@@ -828,22 +828,65 @@ void yield()
 
 void waitforramsync()
 {
-        /* During ULA screen update region. */
-        if (ula.dispon && ula.x<640)
+        /* An enhanced ULA, selected with ulamode, can perform RAM accesses for
+           the CPU in a single 2MHz cycle by having an 8-bit bus to RAM. It can
+           also employ both odd and even cycles outside the screen update
+           region. */
+
+        /* During the ULA screen update region. */
+
+        if (ula.dispon && ula.x < 640)
         {
-                /* Lower screen modes where the ULA is continuously active. */
-                if (!(ula.mode&4))
+                /* In lower screen modes, the ULA is continuously active and
+                   consumes all available cycles, with the CPU having to wait
+                   until the picture signal has been produced.
+
+                   Where the ULA is enhanced and can perform dual 8-bit accesses
+                   to RAM in a 2MHz cycle, one cycle is used to obtain data for
+                   two cycles, allowing the CPU to access RAM on every other
+                   2MHz cycle. */
+
+                if (!(ula.mode & 4))
                 {
-                        cycles+=((640-ula.x)/8);
+                        if (ulamode != ULA_RAM_8BIT_DUAL_ACCESS)
+                                cycles += ((640 - ula.x) / 8);
+                        else
+                                cycles++;
                 }
 
-                if (cycles&1) cycles++;
-                cycles++;
-	}
+                /* In higher screen modes, CPU access to RAM occurs on every
+                   other 2MHz cycle, with the ULA active in specific cycles.
+
+                   Where the ULA is enhanced and can perform dual 8-bit accesses
+                   to RAM in a 2MHz cycle, one cycle is used to obtain data for
+                   four cycles, allowing the CPU to access RAM for three out of
+                   every four cycles. */
+
+                else
+                {
+                        if (ulamode != ULA_RAM_8BIT_DUAL_ACCESS)
+                        {
+                                if (cycles & 1)
+                                        cycles++;
+                        }
+                        else
+                        {
+                                if ((cycles & 3) == 1)
+                                        cycles++;
+                        }
+                }
+        }
 
         /* Outside the region, access RAM at 1MHz unless the ULA is enhanced. */
-	else if (ulamode == 0)
-                cycles++;
+
+        else
+        {
+                if (!(ulamode & ULA_RAM_8BIT))
+                {
+                        if (cycles & 1)
+                                cycles++;
+                }
+        }
 }
 
 void saveulastate(FILE *f)
