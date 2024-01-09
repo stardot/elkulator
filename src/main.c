@@ -60,6 +60,7 @@ void cleardrawit()
         drawit--;
 }*/
 
+char exedir[512];
 char tapename[512];
 char parallelname[512];
 char serialname[512];
