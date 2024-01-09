@@ -451,7 +451,7 @@ void debugwrite(uint16_t addr, uint8_t val)
         }
 }
 
-uint16_t oldpc,oldoldpc;
+extern uint16_t oldpc;
 void dodebugger()
 {
         int c,d,e;
@@ -461,7 +461,7 @@ void dodebugger()
         char ins[256];
         if (!opcode)
         {
-                sprintf(outs,"BRK %04X! %04X %04X\n",pc,oldpc,oldoldpc);
+                sprintf(outs,"BRK %04X! %04X\n",pc,oldpc);
                 debugout(outs);
         }
         if (!opcode) debug=1;
