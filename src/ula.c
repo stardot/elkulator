@@ -246,12 +246,15 @@ void writeula(uint16_t addr, uint8_t val)
                 if (val&0x20) ula.isr&=~INT_RTC;
                 if (val&0x40) ula.isr&=~INT_HIGHTONE;
                 updateulaints();
-                rombank=val&0xF;
-                if (rombank>=0xC) extrom=1;
-                if ((rombank&0xC)==8)
+                if (!(val&0xF0))
                 {
-                        extrom=0;
-                        intrombank=rombank;
+                        rombank=val&0xF;
+                        if (rombank>=0xC) extrom=1;
+                        if ((rombank&0xC)==8)
+                        {
+                                extrom=0;
+                                intrombank=rombank;
+                        }
                 }
                 break;
                 case 6: /*Timer*/
