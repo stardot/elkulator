@@ -495,7 +495,7 @@ void dodebugger()
                 c=ReadConsoleA(cinf,ins,255,(LPDWORD)&d,NULL);
                 ins[d]=0;
 #else
-		d=(int)fgets(ins,255,stdin);
+		fgets(ins,255,stdin);
 #endif
                 d=0;
                 while (ins[d]!=32 && ins[d]!=0xA && ins[d]!=0xD && ins[d]!=0) d++;
