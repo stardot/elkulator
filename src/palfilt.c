@@ -3,8 +3,8 @@
 #include <allegro.h>
 #include "elk.h"
 
-fixed ACoef[2],ACoef2[2];
-fixed BCoef[2],BCoef2[2];
+fixed ACoef[2],ACoef2[3];
+fixed BCoef[2],BCoef2[3];
 
 void initcoef()
 {
