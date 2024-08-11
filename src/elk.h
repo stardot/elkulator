@@ -276,6 +276,8 @@ void clearscreen();
 void savescrshot();
 void loadulastate(FILE *f);
 void saveulastate(FILE *f);
+void startmovie();
+void stopmovie();
 
 void reset1770();
 uint8_t read1770(uint16_t addr);
