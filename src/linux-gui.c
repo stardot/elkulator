@@ -34,7 +34,7 @@ MENU keymenu[2];
 MENU dischmenu[4];
 MENU memmenu[6];
 MENU mrbmenu[4];
-MENU ulamenu[3];
+MENU ulamenu[4];
 MENU settingsmenu[7];
 MENU miscmenu[5];
 MENU mainmenu[7];
@@ -528,7 +528,7 @@ int gui_ulamode()
         return D_O_K;
 }
 
-MENU ulamenu[3]=
+MENU ulamenu[4]=
 {
         {"&Standard",gui_ulamode,NULL,0,(void *)0},
         {"&Enhanced (8-bit, dual access)",gui_ulamode,NULL,0,(void *)ULA_RAM_8BIT_DUAL_ACCESS},
