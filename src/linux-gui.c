@@ -506,7 +506,7 @@ MENU dischmenu[4]=
 
 int gui_mrbmode()
 {
-        mrbmode=(int)active_menu->dp;
+        mrbmode=(intptr_t)active_menu->dp;
         resetit=1;
         updatelinuxgui();
         return D_O_K;

@@ -6,6 +6,8 @@
 #include <string.h>
 #include "elk.h"
 
+static const char * roms = "roms";   // Name of directory containing rom files
+
 int FASTLOW=0;
 int FASTHIGH2=0;
 //#define FASTLOW (turbo || (mrb && mrbmode && mrbmapped))
@@ -88,9 +90,10 @@ void loadroms()
         sndrom = rombanks[SOUND_BANK];
         adfs = rombanks[ADFS_BANK];
 
-        char path[512],p2[512];
-        getcwd(p2,511);
-        sprintf(path,"%sroms",exedir);
+        char path[MAX_PATH_FILENAME_BUFFER_SIZE + sizeof(roms)];
+        char p2[MAX_PATH_FILENAME_BUFFER_SIZE];
+        getcwd(p2,MAX_PATH_FILENAME_BUFFER_SIZE - 1);
+        sprintf(path,"%s%s",exedir, roms);
         printf("path now %s\n",path);
         chdir(path);
         loadrom(os, "os");
