@@ -26,7 +26,7 @@ int discspd=16;
 uint16_t tapedat;
 int tapewrite=0;
 int irq=0,nmi=0;
-int extrom,rombank,intrombank;
+int full_rom_select=0,extrom,rombank,intrombank;
 int tapeon;
 
 int soundlimit,soundon=1,soundcount,soundstat;
@@ -213,6 +213,7 @@ void clearintula(uint8_t num)
 
 void writeula(uint16_t addr, uint8_t val)
 {
+        int paging;
         switch (addr&0xF)
         {
                 case 0: /*Interrupt control*/
@@ -248,12 +249,31 @@ void writeula(uint16_t addr, uint8_t val)
                 updateulaints();
                 if (!(val&0xF0))
                 {
-                        rombank=val&0xF;
-                        if (rombank>=0xC) extrom=1;
-                        if ((rombank&0xC)==8)
+                        paging=val&0xF;
+                        /* Enable full ROM selection, also selecting ROM 12..15. */
+                        if ((paging&0xC)==0xC)
                         {
-                                extrom=0;
-                                intrombank=rombank;
+                                extrom=1;
+                                rombank=paging;
+                                full_rom_select=1;
+                        }
+                        else
+                        {
+                                /* Select internal ROM 8..11 if indicated. */
+                                if ((paging&0xC)==8)
+                                {
+                                        extrom=0;
+                                        rombank=paging;
+                                        intrombank=rombank;
+                                }
+                                /* ROM 0..7 selection if full ROM selection is enabled. */
+                                else if (full_rom_select)
+                                {
+                                        extrom=1;
+                                        rombank=paging;
+                                }
+                                /* Disable full ROM selection if enabled. */
+                                full_rom_select=0;
                         }
                 }
                 break;
