@@ -98,76 +98,97 @@ uint16_t tempw;
 int tempv,hc,al,ah;
 uint8_t tempb;
 
-#define ADC(temp)       if (!p.d)                            \
-                        {                                  \
-                                tempw=(a+temp+(p.c?1:0));        \
-                                p.v=(!((a^temp)&0x80)&&((a^tempw)&0x80));  \
-                                a=tempw&0xFF;                  \
-                                p.c=tempw&0x100;                  \
-                                setzn(a);                  \
-                        }                                  \
-                        else                               \
-                        {                                  \
-                                ah=0;        \
-                                tempb=a+temp+(p.c?1:0);                            \
-                                if (!tempb)                                      \
-                                   p.z=1;                                          \
-                                al=(a&0xF)+(temp&0xF)+(p.c?1:0);                            \
-                                if (al>9)                                        \
-                                {                                                \
-                                        al-=10;                                  \
-                                        al&=0xF;                                 \
-                                        ah=1;                                    \
-                                }                                                \
-                                ah+=((a>>4)+(temp>>4));                             \
-                                if (ah&8) p.n=1;                                   \
-                                p.v=(((ah << 4) ^ a) & 128) && !((a ^ temp) & 128);   \
-                                p.c=0;                                             \
-                                if (ah>9)                                        \
-                                {                                                \
-                                        p.c=1;                                     \
-                                        ah-=10;                                  \
-                                        ah&=0xF;                                 \
-                                }                                                \
-                                a=(al&0xF)|(ah<<4);                              \
-                        }
+static inline void adc_nmos(uint8_t temp)
+{
+	int al, ah;
+	uint8_t tempb;
+	int16_t tempw;
 
-#define SBC(temp)       if (!p.d)                            \
-                        {                                  \
-                                tempw=a-(temp+(p.c?0:1));    \
-                                tempv=(short)a-(short)(temp+(p.c?0:1));            \
-                                p.v=((a^(temp+(p.c?0:1)))&(a^(uint8_t)tempv)&0x80); \
-                                p.c=tempv>=0;\
-                                a=tempw&0xFF;              \
-                                setzn(a);                  \
-                        }                                  \
-                        else                               \
-                        {                                  \
-                                hc=0;                               \
-                                p.z=p.n=0;                            \
-                                if (!((a-temp)-((p.c)?0:1)))            \
-                                   p.z=1;                             \
-                                al=(a&15)-(temp&15)-((p.c)?0:1);      \
-                                if (al&16)                           \
-                                {                                   \
-                                        al-=6;                      \
-                                        al&=0xF;                    \
-                                        hc=1;                       \
-                                }                                   \
-                                ah=(a>>4)-(temp>>4);                \
-                                if (hc) ah--;                       \
-                                if ((a-(temp+((p.c)?0:1)))&0x80)        \
-                                   p.n=1;                             \
-                                p.v=(((a-(temp+((p.c)?0:1)))^temp)&128)&&((a^temp)&128); \
-                                p.c=1; \
-                                if (ah&16)                           \
-                                {                                   \
-                                        p.c=0; \
-                                        ah-=6;                      \
-                                        ah&=0xF;                    \
-                                }                                   \
-                                a=(al&0xF)|((ah&0xF)<<4);                 \
-                        }
+	if (p.d)
+	{
+		ah = 0;
+		p.z = p.n = 0;
+		tempb = a + temp + (p.c ? 1:0);
+		if (!tempb)
+			p.z = 1;
+		al = (a & 0xF) + (temp & 0xF) + (p.c ? 1 : 0);
+		if (al > 9)
+		{
+			al -= 10;
+			al &= 0xF;
+			ah = 1;
+		}
+		ah += ((a >> 4) + (temp >> 4));
+		if (ah & 8)
+			p.n = 1;
+		p.v = (((ah << 4) ^ a) & 128) && !((a ^ temp) & 128);
+		p.c = 0;
+		if (ah > 9)
+		{
+			p.c = 1;
+			ah -= 10;
+			ah &= 0xF;
+		}
+		a = (al & 0xF) | (ah << 4);
+	}
+	else
+	{
+		tempw = (a + temp + (p.c ? 1 : 0));
+		p.v = (!((a ^ temp) & 0x80) && ((a ^ tempw) & 0x80));
+		a = tempw & 0xFF;
+		p.c = tempw & 0x100;
+		setzn(a);
+	}
+}
+
+static inline void sbc_nmos(uint8_t temp)
+{
+	int hc6, al, ah, tempv;
+	uint8_t tempb;
+	int16_t tempw;
+
+	if (p.d)
+	{
+		hc6 = 0;
+		p.z = p.n = 0;
+		tempb = a - temp - ((p.c) ? 0 : 1);
+		if (!(tempb))
+			p.z = 1;
+		al = (a & 15) - (temp & 15) - (p.c ? 0 : 1);
+		if (al & 16)
+		{
+			al -= 6;
+			al &= 0xF;
+			hc6 = 1;
+		}
+		ah = (a >> 4) - (temp >> 4);
+		if (hc6)
+			ah--;
+		if ((a - (temp + (p.c ? 0 : 1))) & 0x80)
+			p.n = 1;
+		p.v = ((a ^ temp) & 0x80) && ((a ^ tempb) & 0x80);
+		p.c = 1;
+		if (ah & 16)
+		{
+			p.c = 0;
+			ah -= 6;
+			ah &= 0xF;
+		}
+		a = (al & 0xF) | ((ah & 0xF) << 4);
+	}
+	else
+	{
+		tempw = a-temp-(p.c ? 0 : 1);
+		tempv = (signed char)a -(signed char)temp-(p.c ? 0 : 1);
+		p.v = ((tempw & 0x80) > 0) ^ ((tempv & 0x100) != 0);
+		p.c = tempw >= 0;
+		a = tempw & 0xFF;
+		setzn(a);
+	}
+}
+
+#define ADC(temp)       adc_nmos(temp)
+#define SBC(temp)       sbc_nmos(temp)
 
 int output=0;
 uint16_t oldpc2,oldpc;
