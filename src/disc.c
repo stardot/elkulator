@@ -125,6 +125,7 @@ void newdisc(int drive, char *fn)
                 if (!strcasecmp(p,loaders[c].ext) && loaders[c].size!=-1)
                 {
                         f=fopen(fn,"wb");
+                        if (!f) continue;
                         for (d=0;d<loaders[c].size;d++) putc(0,f);
                         if (!strcasecmp(p,"ADF"))
                         {

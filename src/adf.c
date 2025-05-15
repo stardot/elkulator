@@ -266,7 +266,7 @@ void adf_poll()
                 {
                         return; /*Hack - wait until data is available*/
 //                        printf("Data overflow!\n");
-//                        exit(-1);
+//                        exit(1);
                 }
                 trackinfoa[adfdrive][adfside][(adfsector*adfsize[adfdrive])+adfreadpos]=c;
                 adfreadpos++;

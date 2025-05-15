@@ -83,14 +83,14 @@ void ADCBCD(uint8_t temp, int tempc)
 {
         printf("BCD ADC!\n");
         dumpregs();
-        exit(-1);
+        exit(1);
 }
 
 void SBCBCD(uint8_t temp, int tempc)
 {
         printf("BCD SBC!\n");
         dumpregs();
-        exit(-1);
+        exit(1);
 }
 
 /*ADC/SBC temp variables*/
@@ -1682,7 +1682,7 @@ void exec6502()
                         dumpregs();
                         rpclog("Bad 6502 opcode %02X %04X %04X %i %i\n",opcode,oldpc,oldpc2,extrom,rombank);
                         fflush(stdout);
-                        exit(-1);*/
+                        exit(1);*/
                 }
 //                if (output) rpclog("%04X : %02X %02X %02X %02X\n",pc,a,x,y,s);
 //                if (pc==0x1000) rpclog("Loop!\n");

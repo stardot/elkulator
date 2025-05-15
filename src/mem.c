@@ -132,6 +132,7 @@ void unloadcart()
 void dumpram()
 {
         FILE *f=fopen("ram.dmp","wb");
+        if (!f) return;
         fwrite(ram,32768,1,f);
         fclose(f);
 }

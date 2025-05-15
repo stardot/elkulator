@@ -248,7 +248,7 @@ void polluef()
         }
         allegro_exit();
         printf("Bad chunk ID %04X length %i\n",chunkid,chunklen);
-        exit(-1);
+        exit(1);
 }
 
 void closeuef()
