@@ -223,7 +223,7 @@ extern int motorspin;
 
 extern char exedir[MAX_PATH_FILENAME_BUFFER_SIZE];
 
-void initelk();
+void initelk(int argc, char *argv[]);
 void closeelk();
 void cleardrawit();
 void runelk();
