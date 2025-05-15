@@ -10,8 +10,8 @@ int autoboot;
 FILE *rlog;
 void rpclog(char *format, ...)
 {
+#if 0
    char buf[256];
-   return;
    if (!rlog) rlog=fopen("e:/devcpp/cycleelk/rlog.txt","wt");
 //turn;
    va_list ap;
@@ -20,6 +20,7 @@ void rpclog(char *format, ...)
    va_end(ap);
    fputs(buf,rlog);
    fflush(rlog);
+#endif
 }
 
 /*int waiting,waiting2;
