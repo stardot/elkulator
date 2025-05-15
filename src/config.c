@@ -89,6 +89,11 @@ void loadconfig()
         char fn[MAX_PATH_FILENAME_BUFFER_SIZE + strlen(elk_cfg_filename)];
         sprintf(fn,"%s%s",exedir, elk_cfg_filename);
         cfgfile=fopen(fn,"rt");
+        if (!cfgfile)
+        {
+                fprintf(stderr,"Error opening %s for reading.\n",fn);
+                return;
+        }
         tapespeed=getintcfg("tapespeed",0);
         plus1=getintcfg("plus1",0);
         plus3=getintcfg("plus3",0);
@@ -152,6 +157,11 @@ void saveconfig()
         char fn[MAX_PATH_FILENAME_BUFFER_SIZE + strlen(elk_cfg_filename)];
         sprintf(fn,"%s%s",exedir, elk_cfg_filename);
         cfgfile=fopen(fn,"wt");
+        if (!cfgfile)
+        {
+                fprintf(stderr,"Error opening %s for writing.\n",fn);
+                return;
+        }
         writeintcfg("tapespeed",tapespeed);
         writeintcfg("plus1",plus1);
         writeintcfg("plus3",plus3);

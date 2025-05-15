@@ -16,6 +16,12 @@ void loadstate()
 void dosavestate()
 {
         FILE *f=fopen(ssname,"wb");
+        if (!f) {
+                fprintf(stderr,"Error opening %s for writing.\n",ssname);
+                wantsavestate=0;
+                return;
+        }
+
         putc('E',f); putc('L',f); putc('K',f); putc('S',f);
         putc('N',f); putc('A',f); putc('P',f); putc('1',f);
 
@@ -46,6 +52,12 @@ void doloadstate()
 {
         int c;
         FILE *f=fopen(ssname,"rb");
+        if (!f) {
+                fprintf(stderr,"Error opening %s for reading.\n",ssname);
+                wantloadstate=0;
+                return;
+        }
+
         for (c=0;c<8;c++) getc(f);
         
         turbo=getc(f);
