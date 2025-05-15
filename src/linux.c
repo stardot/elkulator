@@ -47,7 +47,7 @@ int main(int argc, char *argv[])
         if (ret != 0)
         {
                 fprintf(stderr, "Error %d initializing Allegro.\n", ret);
-                exit(-1);
+                exit(1);
         }
         initelk(argc,argv);
         set_close_button_callback(native_window_close_button_handler);

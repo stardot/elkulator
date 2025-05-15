@@ -172,7 +172,7 @@ void write1770(uint16_t addr, uint8_t val)
                         rpclog("Bad 1770 command %02X\n",val);
                         dumpregs();
                         dumpram();
-                        exit(-1);
+                        exit(1);
                 }
                 break;
                 case 0xFCC5:

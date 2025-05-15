@@ -40,13 +40,13 @@ fi
 
 AC_CHECK_LIB([z], [gzopen], [], \
 	[echo "You need to install the zlib library."
-	 exit -1])
+	 exit 1])
 AC_CHECK_LIB([openal], [alGetError], [], \
 	[echo "You need to install the OpenAL library."
-	 exit -1])
+	 exit 1])
 AC_CHECK_LIB([alut], [alutInit], [], \
    [echo "You need to install the ALUT library."
-    exit -1])
+    exit 1])
 
 AC_CHECK_LIB([m], [sin])
 

@@ -262,7 +262,7 @@ void fdi_poll()
                                                 {
 //                                                        printf("Header CRC error : %02X %02X %02X %02X\n",crc>>8,crc&0xFF,fdisectordat[4],fdisectordat[5]);
 //                                                        dumpregs();
-//                                                        exit(-1);
+//                                                        exit(1);
                                                         inreadop=0;
                                                         if (fdireadaddr)
                                                         {

@@ -105,7 +105,7 @@ void initelk(int argc, char *argv[])
                         printf("-serialdebug n  - set serial debugging output level to n\n");
                         printf("-rom number rom - load rom into the numbered bank\n");
                         printf("-debug          - start debugger\n");
-                        exit(-1);
+                        exit(0);
                 }
                 else
 #endif

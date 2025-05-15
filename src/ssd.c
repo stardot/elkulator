@@ -222,7 +222,7 @@ void ssd_poll()
                 {
                         return;
 //                        printf("Data overflow!\n");
-//                        exit(-1);
+//                        exit(1);
                 }
                 trackinfo[ssddrive][ssdside][(ssdsector<<8)+ssdreadpos]=c;
                 ssdreadpos++;
