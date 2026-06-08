@@ -105,7 +105,7 @@ int gui_loads()
         if (ret)
         {
                 memcpy(ssname,tempname,260);
-                loadstate(ssname);
+                loadstate();
         }
         return D_O_K;
 }
@@ -119,7 +119,7 @@ int gui_saves()
         if (ret)
         {
                 memcpy(ssname,tempname,260);
-                savestate(ssname);
+                savestate();
         }
         return D_O_K;
 }
@@ -618,7 +618,7 @@ int gui_scrshot()
         if (ret)
         {
                 memcpy(scrshotname,tempname,260);
-                savescrshot(scrshotname);
+                savescrshot();
         }
         return D_O_K;
 }
@@ -633,14 +633,14 @@ int gui_startmovie()
         if (ret)
         {
                 memcpy(moviename,tempname,260);
-                startmovie(moviename);
+                startmovie();
         }
         return D_O_K;
 }
 
 int gui_stopmovie()
 {
-    stopmovie(moviename);
+    stopmovie();
     return D_O_K;
 }
 

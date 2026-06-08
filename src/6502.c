@@ -3,6 +3,7 @@
 #include <allegro.h>
 #include <stdio.h>
 #include "elk.h"
+#include "control.h"
 
 int timetolive;
 int ins=0;
@@ -190,6 +191,21 @@ void exec6502()
                         rpclog("PC=%04X A=%02X X=%02X Y=%02X S=%02X %i %i %i\n",pc,a,x,y,s,p.i,extrom,rombank);
 //                        dumpram();
 //                        fflush(stdout);
+                }
+                /* Hook OSWRCH at both the OS entry (&FFEE, used by the OS's own
+                   keyboard echo) and the WRCHV vector destination (&020E/&020F,
+                   used directly by BBC BASIC's PRINT output). */
+                {
+                        /* Hook the WRCHV vector target (&020E/&020F) — all character
+                           output passes through here, whether from the OS keyboard echo
+                           (which goes via &FFEE first) or from BBC BASIC's PRINT output
+                           (which calls the vector target directly). Hooking only here
+                           avoids double-capturing the keyboard echo. */
+                        {
+                                uint16_t wrchv = (uint16_t)(ram[0x020E] | (ram[0x020F] << 8));
+                                if (wrchv != 0 && pc == wrchv)
+                                        control_oswrch(a);
+                        }
                 }
                 opcode=readmem(pc);
                 if (debugon) dodebugger();

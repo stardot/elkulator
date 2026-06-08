@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "elk.h"
+#include "control.h"
 #undef printf
 int autoboot;
 FILE *rlog;
@@ -64,6 +65,7 @@ char exedir[MAX_PATH_FILENAME_BUFFER_SIZE];
 char tapename[512];
 char parallelname[512];
 char serialname[512];
+char controlname[512];
 extern int serial_debug;
 char romnames[16][1024];
 
@@ -71,12 +73,12 @@ void initelk(int argc, char *argv[])
 {
         int c;
         char *p;
-        int tapenext=0,discnext=0,romnext=-2,parallelnext=0,serialnext=0,serialdebugnext=0;
+        int tapenext=0,discnext=0,romnext=-2,parallelnext=0,serialnext=0,serialdebugnext=0,controlnext=0;
         get_executable_name(exedir,MAX_PATH_FILENAME_BUFFER_SIZE - 1);
         p=get_filename(exedir);
         p[0]=0;
         discname[0]=discname2[0]=tapename[0]=0;
-        parallelname[0]=0;serialname[0]=0;
+        parallelname[0]=0;serialname[0]=0;controlname[0]=0;
         for (int i = 0; i < 16; i++)
             romnames[i][0] = 0;
 //        printf("Load config\n");
@@ -102,6 +104,7 @@ void initelk(int argc, char *argv[])
                         printf("-tape tape.uef  - load tape.uef\n");
                         printf("-parallel file  - use file as a socket for parallel output\n");
                         printf("-serial file    - use file as a socket for serial communications\n");
+                        printf("--control file  - use file as a Unix socket for keyboard/screen control\n");
                         printf("-serialdebug n  - set serial debugging output level to n\n");
                         printf("-rom number rom - load rom into the numbered bank\n");
                         printf("-debug          - start debugger\n");
@@ -132,6 +135,10 @@ void initelk(int argc, char *argv[])
                 else if (!strcasecmp(argv[c],"-serial"))
                 {
                         serialnext=1;
+                }
+                else if (!strcasecmp(argv[c],"--control"))
+                {
+                        controlnext=1;
                 }
                 else if (!strcasecmp(argv[c],"-serialdebug"))
                 {
@@ -168,6 +175,11 @@ void initelk(int argc, char *argv[])
                 {
                         strcpy(serialname,argv[c]);
                         serialnext=0;
+                }
+                else if (controlnext)
+                {
+                        strcpy(controlname,argv[c]);
+                        controlnext=0;
                 }
                 else if (serialdebugnext)
                 {
@@ -212,7 +224,8 @@ void initelk(int argc, char *argv[])
         maketapenoise();
 
         makekeyl();
-        
+        control_init(controlname);
+
         set_display_switch_mode(SWITCH_BACKGROUND);
         
 //        initresid();
@@ -250,6 +263,8 @@ void runelk()
                 oldbreak = break_pressed();
                 if (wantloadstate) doloadstate();
                 if (wantsavestate) dosavestate();
+                control_poll();
+                control_inject_tick();
                 if (infocus) poll_joystick();
                 if (autoboot) autoboot--;
                 ddnoiseframes++;
@@ -265,6 +280,7 @@ void runelk()
 
 void closeelk()
 {
+        control_close();
         stopmovie();
         saveconfig();
 //        dumpram();
