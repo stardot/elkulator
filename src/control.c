@@ -104,20 +104,24 @@ static void build_keymap(void)
     ascii_to_key['>'] = (KeyMap){KEY_STOP,      1};
     ascii_to_key['/'] = (KeyMap){KEY_SLASH,     0};
     ascii_to_key['?'] = (KeyMap){KEY_SLASH,     1};
-    ascii_to_key[':'] = (KeyMap){KEY_COLON,     0};
-    ascii_to_key['*'] = (KeyMap){KEY_COLON,     1}; /* SHIFT+: */
-    ascii_to_key[';'] = (KeyMap){KEY_SEMICOLON, 0};
-    ascii_to_key['+'] = (KeyMap){KEY_SEMICOLON, 1}; /* SHIFT+; */
-    ascii_to_key['@'] = (KeyMap){KEY_QUOTE,     0};
+    /* On the Electron keyboard:
+       KEY_QUOTE = ':*' key  (gives ':' unshifted, '*' shifted)
+       KEY_COLON = ';+' key  (gives ';' unshifted, '+' shifted) */
+    ascii_to_key[':'] = (KeyMap){KEY_QUOTE,  0};
+    ascii_to_key['*'] = (KeyMap){KEY_QUOTE,  1}; /* SHIFT+: */
+    ascii_to_key[';'] = (KeyMap){KEY_COLON,  0};
+    ascii_to_key['+'] = (KeyMap){KEY_COLON,  1}; /* SHIFT+; */
     ascii_to_key['^'] = (KeyMap){KEY_6,         1}; /* caret / up-arrow */
 
-    /* Uppercase letters (SHIFT) */
+    /* The Electron starts with CAPS LOCK ON (the default for BASIC use).
+       CAPS LOCK ON: unshifted letter = uppercase, SHIFT+letter = lowercase.
+       So to inject 'A' (uppercase) press the key without SHIFT;
+       to inject 'a' (lowercase) press the key with SHIFT. */
     for (i = 0; i < 26; i++)
-        ascii_to_key['A' + i] = (KeyMap){KEY_A + i, 1};
+        ascii_to_key['A' + i] = (KeyMap){KEY_A + i, 0};   /* uppercase: no shift */
 
-    /* Lowercase letters */
     for (i = 0; i < 26; i++)
-        ascii_to_key['a' + i] = (KeyMap){KEY_A + i, 0};
+        ascii_to_key['a' + i] = (KeyMap){KEY_A + i, 1};   /* lowercase: SHIFT */
 }
 
 /* ------------------------------------------------------------------ */
