@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "elk.h"
+#include "control.h"
 
 static const char * roms = "roms";   // Name of directory containing rom files
 
@@ -416,6 +417,24 @@ uint8_t readkeys(uint16_t addr)
                         if (key[keylookup[keys[1][c][3]]]) temp|=8;
                 }
         }*/
+
+        /* Virtual keypresses injected via the control socket */
+        if (control_inject_active())
+        {
+                int vkey, vshift;
+                control_inject_current(&vkey, &vshift);
+                if (vkey >= 0 && vkey < 128 && (keyl[vkey] & 0x80))
+                {
+                        if (!(addr & (1 << (keyl[vkey] & 15))))
+                                temp |= 1 << ((keyl[vkey] & 0x30) >> 4);
+                }
+                if (vshift && (keyl[KEY_LSHIFT] & 0x80))
+                {
+                        if (!(addr & (1 << (keyl[KEY_LSHIFT] & 15))))
+                                temp |= 1 << ((keyl[KEY_LSHIFT] & 0x30) >> 4);
+                }
+        }
+
         return temp;
 }
 

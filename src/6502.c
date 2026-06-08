@@ -3,6 +3,7 @@
 #include <allegro.h>
 #include <stdio.h>
 #include "elk.h"
+#include "control.h"
 
 int timetolive;
 int ins=0;
@@ -191,6 +192,7 @@ void exec6502()
 //                        dumpram();
 //                        fflush(stdout);
                 }
+                if (pc == 0xFFEE) control_oswrch(a);
                 opcode=readmem(pc);
                 if (debugon) dodebugger();
                 pc++;
