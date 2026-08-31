@@ -2,7 +2,11 @@
   6502 emulation*/
 #include <allegro.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include "elk.h"
+#include "ap5_tube.h"
+#include "pi1mhz_elkulator.h"
+#include <string.h>
 
 int timetolive;
 int ins=0;
@@ -23,6 +27,8 @@ void reset6502()
         p.c=p.z=p.d=p.v=p.n=0;
         p.i=1;
         cycles=0;
+        ap5_tube_rebase_host_clock(cycles);
+        pi1mhz_elkulator_rebase_host_clock(cycles);
         mrbmapped=0;
         resetmem();
 }
@@ -171,6 +177,47 @@ uint8_t tempb;
 
 int output=0;
 uint16_t oldpc2,oldpc;
+static FILE *post_entry_trace;
+static const char *post_entry_trace_path;
+static unsigned post_entry_trace_remaining;
+static int post_entry_trace_initialised;
+static uint16_t post_entry_trace_pc=0x43A0;
+static FILE *vector_trace;
+static const char *vector_trace_path;
+static const char *pc_dump_path;
+static const char *pc_dump_state_path;
+static uint16_t pc_dump_address;
+static int pc_dump_initialised;
+static int pc_dump_complete;
+typedef struct {
+        uint16_t pc;
+        uint8_t opcode,a,x,y,s,flags,rombank,extrom;
+} pc_history_entry;
+#define PC_HISTORY_SIZE 262144u
+static pc_history_entry pc_history[PC_HISTORY_SIZE];
+static unsigned pc_history_next;
+static unsigned pc_history_count;
+static uint16_t pc_history_trigger;
+static const char *pc_history_path;
+static int pc_history_initialised;
+static int pc_history_complete;
+static uint8_t pc_history_last_s;
+static int pc_history_last_s_valid;
+
+static uint8_t pc_history_flags(void)
+{
+        return (p.n ? 0x80 : 0) | (p.v ? 0x40 : 0) | (p.d ? 8 : 0) |
+               (p.i ? 4 : 0) | (p.z ? 2 : 0) | (p.c ? 1 : 0);
+}
+static FILE *tuple_trace;
+static const char *tuple_trace_path;
+static unsigned long tuple_osbyte_calls;
+static unsigned char tuple_last[12];
+static FILE *write_watch;
+static const char *write_watch_path;
+static unsigned write_watch_lo, write_watch_hi;
+static unsigned char write_watch_last[0x40];
+static int write_watch_primed;
 void exec6502()
 {
         uint16_t addr,addr2;
@@ -181,7 +228,260 @@ void exec6502()
         {
                 oldpc2=oldpc;
                 oldpc=pc;
+                static uint16_t vector_trace_pc[16];
+                static unsigned vector_trace_pc_count;
+                if (!vector_trace_path)
+                {
+                        vector_trace_path=getenv("PI1MHZ_VECTOR_TRACE");
+                        if (vector_trace_path && *vector_trace_path)
+                        {
+                                const char *extra=getenv("PI1MHZ_VECTOR_TRACE_PC");
+                                vector_trace=fopen(vector_trace_path,"w");
+                                /* Extra PCs to trace, comma-separated hex. The filing-vector
+                                   guard moves whenever its JIM page changes, so hard-coding
+                                   entry addresses here goes stale; pass them in instead. */
+                                while (extra && *extra && vector_trace_pc_count<16)
+                                {
+                                        char *end;
+                                        unsigned long v=strtoul(extra,&end,16);
+                                        if (end==extra) break;
+                                        vector_trace_pc[vector_trace_pc_count++]=(uint16_t)v;
+                                        extra=(*end==',')?end+1:end;
+                                }
+                        }
+                }
+                if (vector_trace)
+                {
+                        uint16_t fscv=ram[0x21E] | ((uint16_t)ram[0x21F] << 8);
+                        uint16_t filev=ram[0x212] | ((uint16_t)ram[0x213] << 8);
+                        uint16_t findv=ram[0x21C] | ((uint16_t)ram[0x21D] << 8);
+                        int hit=(pc == 0xFFF7 || pc == fscv || pc == filev || pc == findv);
+                        unsigned vi;
+                        for (vi=0;!hit && vi<vector_trace_pc_count;vi++)
+                                if (pc == vector_trace_pc[vi]) hit=1;
+                        if (hit)
+                        {
+                                fprintf(vector_trace,
+                                        "PC=%04X RB=%X ER=%X A=%02X X=%02X Y=%02X S=%02X "
+                                        "FSC=%04X FILE=%04X FIND=%04X CUR=%02X:%02X LEN=%02X%02X "
+                                        "RUN=%02X FLG=%02X OPEN=%02X",
+                                        pc,rombank,extrom,a,x,y,s,fscv,filev,findv,
+                                        ram[0xC8],ram[0xC7],ram[0xF9],ram[0xF8],
+                                        ram[0xBA],ram[0xF5],ram[0xBE]);
+                                if (pc == 0xFFF7 && (((uint16_t)y << 8) | x) < 0x8000)
+                                {
+                                        uint16_t cli=((uint16_t)y << 8) | x;
+                                        fputs(" CLI=",vector_trace);
+                                        for (unsigned i=0;i<80 && ram[cli+i]!=13;i++)
+                                                fputc(ram[cli+i],vector_trace);
+                                }
+                                fprintf(vector_trace," JIMPAGE=%06X",
+                                        pi1mhz_elkulator_selected_page());
+                                fputs(" STACK=",vector_trace);
+                                for (unsigned i=1;i<=12 && s+i<=0xFF;i++)
+                                        fprintf(vector_trace,"%02X",ram[0x100+s+i]);
+                                fputc('\n',vector_trace);
+                                fflush(vector_trace);
+                        }
+                }
+                if (!pc_dump_initialised)
+                {
+                        const char *address=getenv("PI1MHZ_PC_DUMP_ADDRESS");
+                        pc_dump_path=getenv("PI1MHZ_PC_DUMP");
+                        pc_dump_state_path=getenv("PI1MHZ_PC_DUMP_STATE");
+                        if (address && *address && pc_dump_path && *pc_dump_path)
+                                pc_dump_address=(uint16_t)strtoul(address,NULL,16);
+                        else
+                                pc_dump_path=NULL;
+                        pc_dump_initialised=1;
+                }
+                if (!pc_dump_complete && pc_dump_path && pc == pc_dump_address)
+                {
+                        dumpram_to(pc_dump_path);
+                        if (pc_dump_state_path && *pc_dump_state_path)
+                        {
+                                FILE *state=fopen(pc_dump_state_path,"w");
+                                if (state)
+                                {
+                                        fprintf(state,
+                                                "PC=%04X A=%02X X=%02X Y=%02X S=%02X "
+                                                "P=%d%d%d%d%d%d ROM=%X EXT=%X CYC=%d\n",
+                                                pc,a,x,y,s,p.n,p.v,p.d,p.i,p.z,p.c,
+                                                rombank,extrom,cycles);
+                                        fclose(state);
+                                }
+                        }
+                        pc_dump_complete=1;
+                }
+                if (!pc_history_initialised)
+                {
+                        const char *trigger=getenv("PI1MHZ_PC_HISTORY_TRIGGER");
+                        pc_history_path=getenv("PI1MHZ_PC_HISTORY");
+                        if (trigger && *trigger && pc_history_path && *pc_history_path)
+                                pc_history_trigger=(uint16_t)strtoul(trigger,NULL,16);
+                        else
+                                pc_history_path=NULL;
+                        pc_history_initialised=1;
+                }
+                if (!pc_history_complete && pc_history_path)
+                {
+                        uint8_t history_opcode=readmem(pc);
+                        int history_record=pc==pc_history_trigger ||
+                                history_opcode==0x00 || history_opcode==0x08 ||
+                                history_opcode==0x20 || history_opcode==0x28 ||
+                                history_opcode==0x40 || history_opcode==0x48 ||
+                                history_opcode==0x4C || history_opcode==0x60 ||
+                                history_opcode==0x68 || history_opcode==0x6C ||
+                                !pc_history_last_s_valid || s!=pc_history_last_s;
+                        pc_history_entry *entry=&pc_history[pc_history_next];
+                        pc_history_last_s=s;
+                        pc_history_last_s_valid=1;
+                        if (!history_record)
+                                goto pc_history_recorded;
+                        entry->pc=pc;
+                        entry->opcode=history_opcode;
+                        entry->a=a;
+                        entry->x=x;
+                        entry->y=y;
+                        entry->s=s;
+                        entry->flags=pc_history_flags();
+                        entry->rombank=rombank;
+                        entry->extrom=extrom;
+                        pc_history_next=(pc_history_next+1u)%PC_HISTORY_SIZE;
+                        if (pc_history_count<PC_HISTORY_SIZE)
+                                pc_history_count++;
+                        if (pc==pc_history_trigger)
+                        {
+                                FILE *history=fopen(pc_history_path,"w");
+                                if (history)
+                                {
+                                        unsigned first=(pc_history_next+PC_HISTORY_SIZE-
+                                                        pc_history_count)%PC_HISTORY_SIZE;
+                                        for (unsigned i=0;i<pc_history_count;i++)
+                                        {
+                                                entry=&pc_history[(first+i)%PC_HISTORY_SIZE];
+                                                fprintf(history,
+                                                        "PC=%04X OP=%02X A=%02X X=%02X Y=%02X S=%02X "
+                                                        "P=%02X ROM=%X EXT=%X\n",
+                                                        entry->pc,entry->opcode,
+                                                        entry->a,entry->x,entry->y,
+                                                        entry->s,entry->flags,
+                                                        entry->rombank,entry->extrom);
+                                        }
+                                        fclose(history);
+                                }
+                                pc_history_complete=1;
+                        }
+pc_history_recorded:
+                        ;
+                }
+                /* Diagnostic for the WiCFS vector gateway relocation. The
+                 * replacement repairs the MOS extended-vector table from the
+                 * BYTEV *TAPE trap instead of from a resident gateway a loader
+                 * can overwrite. That only works if the loader issues OSBYTE
+                 * between corrupting the table and its next filing call, so
+                 * record every tuple change with the OSBYTE count since the
+                 * previous one. The Electron table is at &0D9F; FILEV, BGETV,
+                 * FINDV and FSCV are at offsets 27, 33, 42 and 45. */
+                if (!tuple_trace_path)
+                {
+                        tuple_trace_path=getenv("PI1MHZ_TUPLE_TRACE");
+                        if (tuple_trace_path && *tuple_trace_path)
+                                tuple_trace=fopen(tuple_trace_path,"w");
+                }
+                if (pc == 0xFFF4) tuple_osbyte_calls++;
+                if (tuple_trace)
+                {
+                        static const unsigned short tslot[4]={27,33,42,45};
+                        static const char *tname[4]={"FILE","BGET","FIND","FSC"};
+                        unsigned char now[12];
+                        unsigned i,j,k=0;
+                        for (i=0;i<4;i++)
+                                for (j=0;j<3;j++)
+                                        now[k++]=ram[0x0D9F+tslot[i]+j];
+                        if (memcmp(now,tuple_last,sizeof(now)))
+                        {
+                                fprintf(tuple_trace,"PC=%04X RB=%X OSBYTE_SINCE=%lu",
+                                        pc,rombank,tuple_osbyte_calls);
+                                for (i=0;i<4;i++)
+                                        fprintf(tuple_trace," %s=%02X%02X:%02X",tname[i],
+                                                now[i*3+1],now[i*3+0],now[i*3+2]);
+                                fprintf(tuple_trace," FILEV=%02X%02X\n",
+                                        ram[0x213],ram[0x212]);
+                                fflush(tuple_trace);
+                                memcpy(tuple_last,now,sizeof(now));
+                                tuple_osbyte_calls=0;
+                        }
+                }
+                /* Log every change to a watched RAM window with the PC which
+                 * was executing. Used to map who really owns the cassette
+                 * workspace, rather than inferring it from the ROM source. */
+                if (!write_watch_path)
+                {
+                        write_watch_path=getenv("PI1MHZ_WRITE_WATCH");
+                        if (write_watch_path && *write_watch_path)
+                        {
+                                const char *lo=getenv("PI1MHZ_WRITE_WATCH_LO");
+                                const char *hi=getenv("PI1MHZ_WRITE_WATCH_HI");
+                                write_watch_lo=lo?(unsigned)strtoul(lo,NULL,16):0x03CB;
+                                write_watch_hi=hi?(unsigned)strtoul(hi,NULL,16):0x03DF;
+                                if (write_watch_hi-write_watch_lo>=0x40)
+                                        write_watch_hi=write_watch_lo+0x3F;
+                                write_watch=fopen(write_watch_path,"w");
+                        }
+                }
+                if (write_watch)
+                {
+                        unsigned wi;
+                        if (!write_watch_primed)
+                        {
+                                for (wi=write_watch_lo;wi<=write_watch_hi;wi++)
+                                        write_watch_last[wi-write_watch_lo]=ram[wi];
+                                write_watch_primed=1;
+                        }
+                        for (wi=write_watch_lo;wi<=write_watch_hi;wi++)
+                        {
+                                if (ram[wi]!=write_watch_last[wi-write_watch_lo])
+                                {
+                                        fprintf(write_watch,
+                                                "ADDR=%04X %02X->%02X PC=%04X RB=%X\n",
+                                                wi,write_watch_last[wi-write_watch_lo],
+                                                ram[wi],oldpc2,rombank);
+                                        write_watch_last[wi-write_watch_lo]=ram[wi];
+                                        fflush(write_watch);
+                                }
+                        }
+                }
                 oldcycs=cycles;
+                if (!post_entry_trace_initialised)
+                {
+                        const char *at=getenv("WICFS_POST_ENTRY_TRACE_PC");
+                        post_entry_trace_path=getenv("WICFS_POST_ENTRY_TRACE");
+                        /* The entry address moves whenever the guard is relocated, so let
+                           the caller name it rather than baking in one build's layout. */
+                        if (at && *at)
+                                post_entry_trace_pc=(uint16_t)strtoul(at,NULL,16);
+                        post_entry_trace_initialised=1;
+                }
+                if (!post_entry_trace && post_entry_trace_path &&
+                    *post_entry_trace_path && pc == post_entry_trace_pc)
+                {
+                        post_entry_trace=fopen(post_entry_trace_path,"w");
+                        if (post_entry_trace)
+                                post_entry_trace_remaining=200000;
+                }
+                if (post_entry_trace && post_entry_trace_remaining)
+                {
+                        fprintf(post_entry_trace,
+                                "%04X %02X %02X %02X %02X %d%d%d%d%d%d %X %X\n",
+                                pc,a,x,y,s,p.n,p.v,p.d,p.i,p.z,p.c,
+                                rombank,extrom);
+                        if (!--post_entry_trace_remaining)
+                        {
+                                fclose(post_entry_trace);
+                                post_entry_trace=NULL;
+                        }
+                }
 //                if (pc==0x1000) output=1;
 //                if (pc>0xE00 && pc<0x5000) output=1;
 //                if (pc==0xFFEE && a==65) output=0;
@@ -1727,6 +2027,8 @@ void exec6502()
                 }
                 ins++;
                 oldcycs=cycles-oldcycs;
+                ap5_tube_sync_host_clock(cycles);
+                pi1mhz_elkulator_sync_host_clock(cycles);
                 if (cpureset)
                 {
                         cpureset=0;
