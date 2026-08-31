@@ -5,6 +5,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include "elk.h"
+#include "beebscsi_elkulator.h"
+#include "pi1mhz_elkulator.h"
+#include "ap5_tube.h"
 
 static const char * roms = "roms";   // Name of directory containing rom files
 
@@ -19,6 +22,8 @@ int plus1=0;
 uint8_t readkeys(uint16_t addr);
 uint8_t rombanks[16][16384];
 uint8_t rombank_enabled[16];
+uint8_t rombank_forced[16];
+uint8_t rombank_writable[16];
 
 uint8_t ram[32768],ram2[32768];
 uint8_t os[16384],mrbos[16384];
@@ -62,14 +67,25 @@ void loadrom_n(int bank, char *name)
 {
     loadrom(rombanks[bank], name);
     rombank_enabled[bank] = 1;
+    rombank_forced[bank] = 1;
+}
+
+void enable_ram_n(int bank)
+{
+    if (!rombank_forced[bank]) memset(rombanks[bank], 0, 16384);
+    rombank_enabled[bank] = 1;
+    rombank_forced[bank] = 1;
+    rombank_writable[bank] = 1;
 }
 
 void update_rom_config(void)
 {
-    rombank_enabled[PLUS1_BANK] = plus1;
-    rombank_enabled[SOUND_BANK] = sndex;
-    rombank_enabled[ADFS_BANK] = (plus3 && adfsena);
-    rombank_enabled[DFS_BANK] = (plus3 && dfsena);
+    if (!rombank_forced[PLUS1_BANK]) rombank_enabled[PLUS1_BANK] = plus1;
+    if (!rombank_forced[SOUND_BANK]) rombank_enabled[SOUND_BANK] = sndex;
+    if (!rombank_forced[ADFS_BANK])
+        rombank_enabled[ADFS_BANK] = (plus3 && adfsena);
+    if (!rombank_forced[DFS_BANK])
+        rombank_enabled[DFS_BANK] = (plus3 && dfsena);
 }
 
 void loadroms()
@@ -77,6 +93,8 @@ void loadroms()
         for (int i = 0; i < 16; i++) {
             memset(rombanks[i], 0, 16384);
             rombank_enabled[i] = 0;
+            rombank_forced[i] = 0;
+            rombank_writable[i] = 0;
         }
 
         /* Clear paged RAM. */
@@ -131,7 +149,19 @@ void unloadcart()
 
 void dumpram()
 {
-        FILE *f=fopen("ram.dmp","wb");
+        dumpram_to("ram.dmp");
+}
+
+void dumpram_to(const char *path)
+{
+        FILE *f;
+        if (!path || !*path) return;
+        f=fopen(path,"wb");
+        if (!f)
+        {
+                fprintf(stderr,"Unable to dump host RAM to %s\n",path);
+                return;
+        }
         fwrite(ram,32768,1,f);
         fclose(f);
 }
@@ -150,6 +180,8 @@ void resetmem()
 
         /* Initialise the current RAM bank paged into page FD (JIM). */
         jim_page = 0;
+        beebscsi_elkulator_set_irq_callback(updateulaints);
+        beebscsi_elkulator_reset();
 }
 
 uint8_t readmem(uint16_t addr)
@@ -157,6 +189,15 @@ uint8_t readmem(uint16_t addr)
         if (debugon) debugread(addr);
         if (addr==pc) fetchc[addr]=31;
         else          readc[addr]=31;
+        pi1mhz_elkulator_sync_host_clock(cycles);
+        ap5_tube_sync_host_clock(cycles);
+        if (pi1mhz_elkulator_handles_read(addr))
+                return pi1mhz_elkulator_read(addr);
+        pi1mhz_elkulator_snoop_read(addr);
+        if (beebscsi_elkulator_handles(addr))
+                return beebscsi_elkulator_read(addr);
+        if (ap5_tube_handles(addr))
+                return ap5_tube_host_read(addr);
         if (addr<0x2000)
         {
                 if (FASTLOW) return ram2[addr];
@@ -176,13 +217,12 @@ uint8_t readmem(uint16_t addr)
                         if (intrombank&2) return basic[addr&0x3FFF];
                         return readkeys(addr);
                 }
-                /* Treat cartridges specially for now. */
-                if (rombank==0) return cart0[(banks[0] * 16384) + (addr&0x3FFF)];
-                if (rombank==1) return cart1[(banks[1] * 16384) + (addr&0x3FFF)];
-
-                /* Handle other ROMs. */
+                /* Explicit command-line banks take precedence over the
+                   legacy slot 0 and 1 cartridge mapping. */
                 if (rombank_enabled[rombank])
                     return rombanks[rombank][addr & 0x3fff];
+                if (rombank==0) return cart0[(banks[0] * 16384) + (addr&0x3FFF)];
+                if (rombank==1) return cart1[(banks[1] * 16384) + (addr&0x3FFF)];
 
                 if (rombank==0x6) return ram6[addr&0x3FFF];
 
@@ -230,6 +270,19 @@ void writemem(uint16_t addr, uint8_t val)
 {
         if (debugon) debugwrite(addr,val);
         writec[addr]=31;
+        pi1mhz_elkulator_sync_host_clock(cycles);
+        ap5_tube_sync_host_clock(cycles);
+        pi1mhz_elkulator_snoop_write(addr, val);
+        if (beebscsi_elkulator_handles(addr))
+        {
+                beebscsi_elkulator_write(addr, val);
+                return;
+        }
+        if (ap5_tube_handles(addr))
+        {
+                ap5_tube_host_write(addr, val);
+                return;
+        }
 //        if (addr==0x5820) rpclog("Write 5820\n");
 //        if (addr==0x5B10) rpclog("Write 5B10\n");
 //        if (addr==0x5990) rpclog("Write 5990\n");
@@ -265,6 +318,8 @@ void writemem(uint16_t addr, uint8_t val)
         }
         if (addr<0xC000)
         {
+                if (extrom && rombank_writable[rombank])
+                        rombanks[rombank][addr&0x3FFF]=val;
                 if (extrom && rombank==SOUND_BANK && (addr&0x2000)) sndrom[addr&0x3FFF]=val;
                 if (extrom && rombank==DFS_BANK && plus3 && dfsena) dfs[addr&0x3FFF]=val;
                 if (extrom && rombank==0x6) { ram6[addr&0x3FFF]=val; usedrom6=1; }

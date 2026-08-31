@@ -246,6 +246,8 @@ void givealbufferdd(int16_t *buf);
 
 void loadroms();
 void loadrom_n(int, char *fn);
+void enable_ram_n(int bank);
+void dumpram_to(const char *path);
 void resetmem();
 void dumpram();
 void loadcart(char *fn);
@@ -262,6 +264,7 @@ void save6502state(FILE *f);
 
 void initula();
 void resetula();
+void updateulaints(void);
 uint8_t readula(uint16_t addr);
 void writeula(uint16_t addr, uint8_t val);
 void yield();

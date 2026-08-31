@@ -25,3 +25,9 @@ linux-keydefine.c main.c mem.c palfilt.c parallel.c savestate.c scale2x.c \
 serial.c socket.c sound.c soundopenal.c ssd.c tapenoise.c uef.c ula.c \
 allegro_icon.c
 
+
+elkulator_SOURCES += pi1mhz_mailbox.c pi1mhz_net_backend.c pi1mhz_ftp.c pi1mhz_elkulator.c
+elkulator_LDADD += -lz
+elkulator_SOURCES += ap5_tube.c vrEmu6502.c
+
+elkulator_SOURCES += beebscsi_elkulator.c

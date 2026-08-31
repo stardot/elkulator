@@ -5,6 +5,8 @@
 #include <zlib.h>
 #include "elk.h"
 #include "2xsai.h"
+#include "beebscsi_elkulator.h"
+#include "ap5_tube.h"
 
 void dosavescrshot();
 void saveframe();
@@ -181,7 +183,8 @@ void updateulaints()
                 irq=1;
 //                printf("Interrupt %02X %02X\n",ula.isr,ula.ier);
         }
-        else if (plus1 && serial_irq)
+        else if ((plus1 && serial_irq) || ap5_tube_host_irq() ||
+                 beebscsi_elkulator_host_irq())
                 irq = 1;
         else
         {
